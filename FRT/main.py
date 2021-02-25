@@ -3,6 +3,7 @@ import argparse
 import time
 import math
 import os
+import sys
 import torch
 import torch.nn as nn
 import torch.onnx
@@ -58,6 +59,17 @@ if torch.cuda.is_available():
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
 device = torch.device("cuda" if args.cuda else "cpu")
+
+if os.path.exists(args.save):
+    print("The following file will be overwritten when the model saves: {}".format(args.save))
+    while True:
+        reply = str(input("Are you sure you want to proceed? [y/n]")).lower().strip()
+        if reply == "y":
+            print("Proceeding...")
+            break
+        elif reply == "n":
+            print("Will not proceed...")
+            sys.exit(1)
 
 ###############################################################################
 # Load data
