@@ -62,6 +62,8 @@ class Node:
 
       self.token_type = TokenType.T_NUM
       self.value = operation(left_val, right_val)
+      if int(self.value) == self.value:
+        self.value = int(self.value)
       self.children = []
       return
 
@@ -95,9 +97,10 @@ def lexical_analysis(s: str) -> [Node]:
       while idx < len(s) and re.fullmatch(r'\d+(\.\d*)?|\.\d+', s[start:idx + 1]):
         idx += 1
       
-      num = s[start:idx]
-      value = int(num) if re.fullmatch(r'\d+', num) else float(num)
-      token = Node(TokenType.T_NUM, value=value)
+      num = float(s[start:idx])
+      if int(num) == float(num):
+        num = int(num)
+      token = Node(TokenType.T_NUM, value=num)
     else:
       raise Exception('Invalid token: {}'.format(c))
     tokens.append(token)
