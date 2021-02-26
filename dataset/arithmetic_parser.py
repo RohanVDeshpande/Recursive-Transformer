@@ -29,12 +29,15 @@ class Node:
     self.children = []
     self.paren = False
 
-  def to_string(self) -> str:
+  def to_string(self, debug=False) -> str:
+    """ Converts the AST to a string representation. Enable debug for readability (spaces).
+    """
     s = str(self.value)
     if self.token_type != TokenType.T_NUM:
-      left_str = self.children[0].to_string()
-      right_str = self.children[1].to_string()
-      s = left_str + ' ' + str(self.value) + ' ' + right_str
+      sep = ' ' if debug else ''
+      left_str = self.children[0].to_string(debug)
+      right_str = self.children[1].to_string(debug)
+      s = left_str + sep + str(self.value) + sep + right_str
 
     if self.paren:
       s = '(' + s + ')'
@@ -42,9 +45,15 @@ class Node:
     return s
 
   def is_reducable(self) -> bool:
+    """ Convenience function to determine whether this Node is reducable.
+    """
     return self.token_type != TokenType.T_NUM or self.paren
 
   def step(self):
+    """ Reduces the expression represented by this Node by randomly selecting one of its children
+    to reduce if they are reducable. Otherwise, if both children are fully reduced, computes the 
+    numerical value of this Node.
+    """
     if self.token_type == TokenType.T_NUM:
       self.paren = False
       return
@@ -75,6 +84,8 @@ class Node:
 
 
 def lexical_analysis(s: str) -> [Node]:
+  """ Converts an arithmetic string into a series of tokens, represented by AST nodes directly.
+  """
   mappings = {
     '+': TokenType.T_PLUS,
     '-': TokenType.T_MINUS,
@@ -109,12 +120,17 @@ def lexical_analysis(s: str) -> [Node]:
 
 
 def match(tokens: [Node], token: TokenType) -> Node:
+  """ Pops the next token off the stack if it matches the given Token.
+  Used primarily to match parse parentheses.
+  """
   if tokens[0].token_type == token:
     return tokens.pop(0)
   else:
     raise Exception('Invalid syntax on token {}: {}, expected {}'.format(tokens[0].token_type, tokens[0].value, token))
 
 def parse_e(tokens: [Node]) -> Node:
+  """ Parses lowest priority expressions: addition, subtraction.
+  """
   left_node = parse_e2(tokens)
 
   while tokens[0].token_type in [TokenType.T_PLUS, TokenType.T_MINUS]:
@@ -127,6 +143,8 @@ def parse_e(tokens: [Node]) -> Node:
 
 
 def parse_e2(tokens: [Node]) -> Node:
+  """ Parses second-priority expressions: multiplication, division
+  """
   left_node = parse_e3(tokens)
 
   while tokens[0].token_type in [TokenType.T_MULT, TokenType.T_DIV]:
@@ -139,6 +157,8 @@ def parse_e2(tokens: [Node]) -> Node:
 
 
 def parse_e3(tokens: [Node]) -> Node:
+  """ Parses highest-priority expressions: parentheses and numeric values.
+  """
   if tokens[0].token_type == TokenType.T_NUM:
     return tokens.pop(0)
 
@@ -151,15 +171,31 @@ def parse_e3(tokens: [Node]) -> Node:
 
 
 def parse(inputstring: str) -> Node:
+  """ Parses an arithmetic string into an abstract syntax tree.
+  """
   tokens = lexical_analysis(inputstring)
   ast = parse_e(tokens)
   match(tokens, TokenType.T_END)
   return ast
 
+def generate_datapoints(inputstring: str, debug=False) -> [(str, str, bool)]:
+  """ Generates a list of (expr, next_expr, finished) tuples for a given arithmetic expression.
+  """
+  datapoints = []
+  ast = parse(inputstring)
+
+  while ast.is_reducable():
+    curr = ast.to_string(debug)
+    ast.step()
+    reduced = ast.to_string(debug)
+    finished = ast.is_reducable()
+
+    datapoints.append((curr, reduced, finished))
+  
+  return datapoints
+
 if __name__ == '__main__':
   inp = ''.join(sys.argv[1].split())
   ast = parse(inp)
-  print(ast.to_string())
-  while ast.token_type != TokenType.T_NUM or ast.paren:
-    ast.step()
-    print(ast.to_string())
+  for datapoint in generate_datapoints(inp, debug=True):
+    print(datapoint)
