@@ -188,7 +188,7 @@ def generate_datapoints(inputstring: str, debug=False) -> [(str, str, bool)]:
     curr = ast.to_string(debug)
     ast.step()
     reduced = ast.to_string(debug)
-    finished = ast.is_reducable()
+    finished = not ast.is_reducable()
 
     datapoints.append((curr, reduced, finished))
   
