@@ -96,22 +96,28 @@ def lexical_analysis(s: str) -> [Node]:
 
   tokens = []
   idx = 0
+  is_prev_value = False
   while idx < len(s):
     c = s[idx]
-    if c in mappings:
-      token_type = mappings[c]
-      token = Node(token_type, value=c)
-      idx += 1
-    elif re.match(r'\d', c):
+    if (not is_prev_value and (c == '+' or c == '-')) or re.match(r'\d', c): # handle numeric
       start = idx
+      if c == '+' or c == '-': # account for explicit positive/negative number
+        idx += 1
 
-      while idx < len(s) and re.fullmatch(r'\d+(\.\d*)?|\.\d+', s[start:idx + 1]):
+      while idx < len(s) and re.fullmatch(r'(\+|-)?(\d+(\.\d*)?|\.\d+)', s[start:idx + 1]):
         idx += 1
       
       num = float(s[start:idx])
       if int(num) == float(num):
         num = int(num)
       token = Node(TokenType.T_NUM, value=num)
+      is_prev_value = True
+
+    elif c in mappings:
+      token_type = mappings[c]
+      token = Node(token_type, value=c)
+      idx += 1
+      is_prev_value = (c == ')')
     else:
       raise Exception('Invalid token: {}'.format(c))
     tokens.append(token)
@@ -196,6 +202,6 @@ def generate_datapoints(inputstring: str, debug=False) -> [(str, str, bool)]:
 
 if __name__ == '__main__':
   inp = ''.join(sys.argv[1].split())
-  ast = parse(inp)
+  # ast = parse(inp)
   for datapoint in generate_datapoints(inp, debug=True):
     print(datapoint)
