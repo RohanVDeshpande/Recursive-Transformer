@@ -4,30 +4,42 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import data
+import random
+from termcolor import colored
 
 SRC_TGT_SEP = u"\u2358"			# श
 TGT_LOOP_SEP = u"\u2325"		# क
 END = u"\u2352"					# र
 PADDING = u"\u2340"				# त
 LEN = 16
+BLOCKSIZE = 4
+FEATURES = 32
 
-srctext = "5+5" + (LEN-3) * PADDING
-tgttext = "10" + TGT_LOOP_SEP + "1" + END + (LEN - 5) * PADDING
 
-print(srctext)
-print(tgttext)
+dataset = []
+
+def make_q_a(num1, num2):
+	q = "{}+{}".format(num1, num2)
+	q += (LEN - len(q)) * PADDING
+	a = "{}{}1{}".format(num1 + num2, TGT_LOOP_SEP, END)
+	a += (LEN - len(a)) * PADDING
+	return (q, a)
+
+
+for i in range(5 * BLOCKSIZE):
+	num1 = random.randint(0, 20)
+	num2 = random.randint(0, 20)
+	dataset.append(make_q_a(num1, num2))
 
 d = data.Dictionary()
 
-for c in srctext:
-	d.add_word(c)
-for c in tgttext:
-	d.add_word(c)
+for sample in dataset:
+	for c in sample[0]:
+		d.add_word(c)
+	for c in sample[1]:
+		d.add_word(c)
 
-FEATURES = 16
 
-#print(src_mask)
-#print(tgt_mask)
 def text2tensor(dictionary, text):
 	return torch.tensor([ dictionary.word2idx[c] for c in text], dtype=torch.long)
 
@@ -36,6 +48,8 @@ def tensor2text(dictionary, t):
 		return "".join([dictionary.idx2word[idx] for idx in t])
 	else:
 		return ""
+
+
 
 class FRT(nn.Module):
 	""" Forced Recursive Transformer """
@@ -88,23 +102,36 @@ optimizer = optim.Adam(model.parameters(), lr=0.0001)
 criterion = nn.NLLLoss()
 
 model.train()
-for epoch in range(300):
-    optimizer.zero_grad()
-    output, tgt_ref = model(srctext, tgttext)
-    #print(output.shape)
-    #print(tgt.shape)
-    loss = criterion(output, tgt_ref)
-    loss.backward()
-    optimizer.step()
-    print("Loss: {}".format(loss.item()))
+for epoch in range(40):
+	epoch_loss = 0.
+	for sample in dataset:
+	    optimizer.zero_grad()
+	    output, tgt_ref = model(sample[0], sample[1])
+	    #print(output.shape)
+	    #print(tgt.shape)
+	    loss = criterion(output, tgt_ref)
+	    loss.backward()
+	    optimizer.step()
+	    epoch_loss += loss.item()
+	print("Epcoh {}, Loss: {}".format(epoch, epoch_loss))
 
 model.eval()
-output, tgt_ref = model(srctext, tgttext)
-#print(output)
-#print(output.shape)
-got=torch.argmax(output, 1)
-print(got)
-print(tgt_ref)
+print()
 
-print("Expected: '{}'".format(tensor2text(d, tgt_ref)))
-print("Got: '{}'".format(tensor2text(d, got)))
+training_questions = {sample[0] for sample in dataset}
+
+for i in range(15):
+	num1 = random.randint(0, 50)
+	num2 = random.randint(0, 50)
+	q, a = make_q_a(num1, num2)
+	output, tgt_ref = model(q, a)
+	got=torch.argmax(output, 1)
+	#print(got)
+	#print(tgt_ref)
+	output_str = tensor2text(d, tgt_ref)
+	got_str = tensor2text(d, got)
+
+	print("Q: {}+{} , A: {}. Seen before: {}".format(num1, num2, num1 + num2, q in training_questions))
+	print("Expected: '{}'".format(output_str))
+	print(colored("Got: '{}'".format(got_str), "blue" if output_str == got_str else "red"))
+	print()
