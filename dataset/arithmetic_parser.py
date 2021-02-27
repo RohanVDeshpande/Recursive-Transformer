@@ -1,4 +1,12 @@
-# Adapted from Georg Nebehay's arithmetic parser at https://github.com/gnebehay/parser
+""" Adapted from Georg Nebehay's arithmetic parser at https://github.com/gnebehay/parser
+Extended to include:
+- multi-digit numbers
+- decimals/floating point numbers
+- explicit negative numbers
+- string output, including parentheses (which aren't strictly necessary in the AST)
+- single step reduction
+"""
+
 import sys
 import enum
 import re
