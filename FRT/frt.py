@@ -1,59 +1,41 @@
 import math
+import random
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
 import data
-import random
+
 from termcolor import colored
 
-SRC_TGT_SEP = u"\u2358"			# श
-TGT_LOOP_SEP = u"\u2325"		# क
-END = u"\u2352"					# र
-PADDING = u"\u2340"				# त
-LEN = 16
-BLOCKSIZE = 4
-FEATURES = 32
-BATCHES = 10
+EPOCHS = 5
+TRAIN_PATH = "mathematics_dataset/raw_data_tsv/train-easy/arithmetic__add_or_sub.tsv"
+TEST_PATH = "mathematics_dataset/raw_data_tsv/train-easy/arithmetic__add_or_sub.tsv"
 
-dataset_questions = []
-dataset_answers = []
+dataset_config = {
+	"SRC_TGT_SEP": u"\u2358",			# श
+	"TGT_LOOP_SEP" : u"\u2325",			# क
+	"END" : u"\u2352",					# र
+	"PADDING" : u"\u2340",				# त
+	"SRC_LEN" : 16,
+	"TGT_LEN" : 16,
+	"BATCH_SIZE": 16
+}
 
-def make_q_a(num1, num2):
-	add = (random.random() >= 0.5)
-	q = "{}{}{}".format(num1, "+" if add else "-", num2)
-	q += (LEN - len(q)) * PADDING
-	a = "{}{}1{}".format(num1 + num2 if add else num1 - num2, TGT_LOOP_SEP, END)
-	a += (LEN - len(a)) * PADDING
-	return (q, a)
+train_dataset = data.Dataset(dataset_config)
+train_dataset.buildDataset(TRAIN_PATH)
 
-
-for i in range(BATCHES * BLOCKSIZE):
-	num1 = random.randint(0, 40)
-	num2 = random.randint(0, 40)
-	q, a = make_q_a(num1, num2)
-	dataset_questions.append(q)
-	dataset_answers.append(a)
-
-d = data.Dictionary()
-
-for q in dataset_questions:
-	for c in q:
-		d.add_word(c)
-for a in dataset_answers:
-	for c in a:
-		d.add_word(c)
-
-
-def text2tensor(dictionary, text):
-	return torch.tensor([ dictionary.word2idx[c] for c in text], dtype=torch.long)
-
-def tensor2text(dictionary, t):
-	if len(t.shape) == 1:
-		return "".join([dictionary.idx2word[idx] for idx in t])
-	else:
-		return ""
-
+frt_config = {
+	"TOKENS" : train_dataset.tokens(),
+	"TGT_LEN": train_dataset.TGT_LEN,
+	"FEATURES" : 16,
+	"HEADS" : 2,
+	"ENC_LAYERS" : 2,
+	"DEC_LAYERS" : 2,
+	"FEED_FORWARD" : 64
+}
 
 
 class FRT(nn.Module):
@@ -61,106 +43,97 @@ class FRT(nn.Module):
 
 	def __init__(self, config):
 		super().__init__()
+		for key in config:
+			setattr(self, key, config[key])
 
-		#src_key_padding_mask=src_mask, tgt_key_padding_mask=tgt_mask
-		self.embed = nn.Embedding(config["TOKENS"], config["FEATURES"])
-		self.transformer = nn.Transformer(d_model=config["FEATURES"], nhead=config["HEADS"], num_encoder_layers=config["ENC_LAYERS"], num_decoder_layers=config["DEC_LAYERS"], dim_feedforward=config["FEED_FORWARD"])
-		self.lin_out = nn.Linear(config["FEATURES"], config["TOKENS"])		# should bias be disabled?
+		assert self.TOKENS is not None
+		assert self.FEATURES is not None
+		assert self.HEADS is not None
+		assert self.ENC_LAYERS is not None
+		assert self.DEC_LAYERS is not None
+		assert self.FEED_FORWARD is not None
+		assert self.TGT_LEN is not None
+
+		self.embed = nn.Embedding(self.TOKENS, self.FEATURES)
+		
+		# nn.Transformer parameters:
+		# d_model: int = 512,
+		# nhead: int = 8,
+		# num_encoder_layers: int = 6,
+		# num_decoder_layers: int = 6,
+		# dim_feedforward: int = 2048,
+		# dropout: float = 0.1,
+		# activation: str = 'relu'
+		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, dim_feedforward=self.FEED_FORWARD)
+		self.lin_out = nn.Linear(self.FEATURES, self.TOKENS)		# should bias be disabled?
 		self.log_softmax = nn.LogSoftmax()
 		self.apply(self._init_weights)
-		print("number of parameters: {}".format(sum(p.numel() for p in self.parameters())))
+		print("FRT model has {} parameters".format(sum(p.numel() for p in self.parameters())))
 
 	def _init_weights(self, module):
 		if isinstance(module, nn.Embedding):
 			module.weight.data.normal_(mean=0.0, std=0.02)
 
-	def forward(self, srctexts, tgttexts):
-		src_indicies = torch.cat([text2tensor(d, srctext).view(-1, 1) for srctext in srctexts], dim=1)
+	def forward(self, src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask):
 		src = self.embed(src_indicies)
-		src_padding_mask = torch.eq(src_indicies, d.word2idx[PADDING]).float()
-		src_padding_mask = src_padding_mask.masked_fill(src_padding_mask == 1, float('-inf')).masked_fill(src_padding_mask == 0, float(0.0))
-		src_padding_mask = torch.transpose(src_padding_mask, 0, 1)
-
-		tgt_indicies = torch.cat([text2tensor(d, tgttext).view(-1, 1) for tgttext in tgttexts], dim=1)
 		tgt = self.embed(tgt_indicies)
 
-		tgt_padding_mask = torch.eq(tgt_indicies, d.word2idx[PADDING]).float()
-		tgt_padding_mask = tgt_padding_mask.masked_fill(tgt_padding_mask == 1, float('-inf')).masked_fill(tgt_padding_mask == 0, float(0.0))
-		tgt_padding_mask = torch.transpose(tgt_padding_mask, 0, 1)
-
-		# print(src.shape)
-		# print(tgt.shape)
-		# print(src_padding_mask.shape)
-		# print(tgt_padding_mask.shape)
-
 		output = self.transformer(src, tgt,
-								  tgt_mask=self.transformer.generate_square_subsequent_mask(LEN),
+								  tgt_mask=self.transformer.generate_square_subsequent_mask(self.TGT_LEN),
 								  src_key_padding_mask=src_padding_mask,
-								  tgt_key_padding_mask=tgt_padding_mask).view(-1, FEATURES)
+								  tgt_key_padding_mask=tgt_padding_mask).view(-1, self.FEATURES)
 		output = self.lin_out(output)
 		output = self.log_softmax(output)
-		#print(output)
-		# print(output.shape)
-		# print(tgt_indicies.shape)
 
 		return output, tgt_indicies
 
 
-
-# d_model: int = 512, nhead: int = 8, num_encoder_layers: int = 6, num_decoder_layers: int = 6, dim_feedforward: int = 2048, dropout: float = 0.1, activation: str = 'relu'
-config = {}
-config["FEATURES"] = FEATURES
-config["TOKENS"] = d.len()
-config["HEADS"] = 2
-config["ENC_LAYERS"] = 2
-config["DEC_LAYERS"] = 2
-config["FEED_FORWARD"] = 64
-
-model = FRT(config)
+model = FRT(frt_config)
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 criterion = nn.NLLLoss()
 
 model.train()
-for epoch in range(80):
+for epoch in range(EPOCHS):
 	epoch_loss = 0.
-	for batch in range(BATCHES):
-	    optimizer.zero_grad()
-	    q_chunk = dataset_questions[BLOCKSIZE * batch:BLOCKSIZE * (batch + 1)]
-	    a_chunk = dataset_answers[BLOCKSIZE * batch:BLOCKSIZE * (batch + 1)]
-	    #print(q_chunk)
-	    #print(a_chunk)
-	    output, tgt_ref = model(q_chunk, a_chunk)
-	    #print(output.shape)
-	    #print(tgt.shape)
-	    loss = criterion(output, tgt_ref.view(-1))
-	    loss.backward()
-	    optimizer.step()
-	    epoch_loss += loss.item()
+	for batch in range(train_dataset.batches()//2):
+		#print("Epoch {} Batch {} / {}".format(epoch, batch, train_dataset.batches()))
+		optimizer.zero_grad()
+		output, tgt = model(*train_dataset.get_data(batch))
+		loss = criterion(output, tgt.view(-1))
+		loss.backward()
+		optimizer.step()
+		epoch_loss += loss.item()
 	print("Epcoh {}, Loss: {}".format(epoch, epoch_loss))
+
 
 model.eval()
 print()
 
-training_questions = set(dataset_questions)
+test_dataset = data.Dataset(train_dataset)
+test_dataset.BATCH_SIZE = 1
+test_dataset.buildDataset(TEST_PATH)
+
 correct = 0
-total = 200
-seen = 0
-for i in range(total):
-	num1 = random.randint(0, 200)
-	num2 = random.randint(0, 200)
-	q, a = make_q_a(num1, num2)
-	output, tgt_ref = model([q], [a])
+total = 0
+
+printed = 0
+for i in range(test_dataset.batches()//2, test_dataset.batches()):
+
+	output, tgt = model(*test_dataset.get_data(i))
 	got=torch.argmax(output, 1)
 	#print(got)
 	#print(tgt_ref)
-	output_str = tensor2text(d, tgt_ref.view(-1))
-	got_str = tensor2text(d, got.view(-1))
 
-	print("Q: {} , A: {}. Seen before: {}".format(q.split(PADDING)[0], a.split(TGT_LOOP_SEP)[0], q in training_questions))
-	print("Expected: '{}'".format(output_str))
-	print(colored("Got: '{}'".format(got_str), "blue" if output_str == got_str else "red"))
-	print()
+	output_str = test_dataset.tensor2text(tgt.view(-1))
+	got_str = test_dataset.tensor2text(got.view(-1))
+
+	if printed < 100:
+		print("Q: {} , A: {}".format(test_dataset.questions[i].split(test_dataset.PADDING)[0],
+													  test_dataset.answers[i].split(test_dataset.TGT_LOOP_SEP)[0]))
+		print("Expected: '{}'".format(output_str))
+		print(colored("Got: '{}'".format(got_str), "blue" if output_str == got_str else "red"))
+		print()
+		printed += 1
 	correct += (output_str == got_str)
-	seen += (q in training_questions)
+	total += 1
 print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100))
-print("{} of the {} test questions were already seen during training".format(seen, total))
