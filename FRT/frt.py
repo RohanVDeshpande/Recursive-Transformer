@@ -20,9 +20,10 @@ dataset_questions = []
 dataset_answers = []
 
 def make_q_a(num1, num2):
-	q = "{}+{}".format(num1, num2)
+	add = (random.random() >= 0.5)
+	q = "{}{}{}".format(num1, "+" if add else "-", num2)
 	q += (LEN - len(q)) * PADDING
-	a = "{}{}1{}".format(num1 + num2, TGT_LOOP_SEP, END)
+	a = "{}{}1{}".format(num1 + num2 if add else num1 - num2, TGT_LOOP_SEP, END)
 	a += (LEN - len(a)) * PADDING
 	return (q, a)
 
@@ -155,7 +156,7 @@ for i in range(total):
 	output_str = tensor2text(d, tgt_ref.view(-1))
 	got_str = tensor2text(d, got.view(-1))
 
-	print("Q: {}+{} , A: {}. Seen before: {}".format(num1, num2, num1 + num2, q in training_questions))
+	print("Q: {} , A: {}. Seen before: {}".format(q.split(PADDING)[0], a.split(TGT_LOOP_SEP)[0], q in training_questions))
 	print("Expected: '{}'".format(output_str))
 	print(colored("Got: '{}'".format(got_str), "blue" if output_str == got_str else "red"))
 	print()
