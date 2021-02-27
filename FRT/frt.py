@@ -14,9 +14,10 @@ PADDING = u"\u2340"				# त
 LEN = 16
 BLOCKSIZE = 4
 FEATURES = 32
+BATCHES = 10
 
-
-dataset = []
+dataset_questions = []
+dataset_answers = []
 
 def make_q_a(num1, num2):
 	q = "{}+{}".format(num1, num2)
@@ -26,17 +27,20 @@ def make_q_a(num1, num2):
 	return (q, a)
 
 
-for i in range(5 * BLOCKSIZE):
-	num1 = random.randint(0, 20)
-	num2 = random.randint(0, 20)
-	dataset.append(make_q_a(num1, num2))
+for i in range(BATCHES * BLOCKSIZE):
+	num1 = random.randint(0, 40)
+	num2 = random.randint(0, 40)
+	q, a = make_q_a(num1, num2)
+	dataset_questions.append(q)
+	dataset_answers.append(a)
 
 d = data.Dictionary()
 
-for sample in dataset:
-	for c in sample[0]:
+for q in dataset_questions:
+	for c in q:
 		d.add_word(c)
-	for c in sample[1]:
+for a in dataset_answers:
+	for c in a:
 		d.add_word(c)
 
 
@@ -60,6 +64,7 @@ class FRT(nn.Module):
 		#src_key_padding_mask=src_mask, tgt_key_padding_mask=tgt_mask
 		self.embed = nn.Embedding(config["TOKENS"], config["FEATURES"])
 		self.transformer = nn.Transformer(d_model=config["FEATURES"], nhead=config["HEADS"], num_encoder_layers=config["ENC_LAYERS"], num_decoder_layers=config["DEC_LAYERS"], dim_feedforward=config["FEED_FORWARD"])
+		self.lin_out = nn.Linear(config["FEATURES"], config["TOKENS"])		# should bias be disabled?
 		self.log_softmax = nn.LogSoftmax()
 		self.apply(self._init_weights)
 		print("number of parameters: {}".format(sum(p.numel() for p in self.parameters())))
@@ -68,21 +73,34 @@ class FRT(nn.Module):
 		if isinstance(module, nn.Embedding):
 			module.weight.data.normal_(mean=0.0, std=0.02)
 
-	def forward(self, srctext, tgttext):
-		src_indicies = text2tensor(d, srctext)
-		src = torch.unsqueeze(self.embed(src_indicies), 1)
-		src_padding_mask = torch.tensor([ float('-inf') if c == PADDING else 0 for c in  srctext]).view(1, -1)
+	def forward(self, srctexts, tgttexts):
+		src_indicies = torch.cat([text2tensor(d, srctext).view(-1, 1) for srctext in srctexts], dim=1)
+		src = self.embed(src_indicies)
+		src_padding_mask = torch.eq(src_indicies, d.word2idx[PADDING]).float()
+		src_padding_mask = src_padding_mask.masked_fill(src_padding_mask == 1, float('-inf')).masked_fill(src_padding_mask == 0, float(0.0))
+		src_padding_mask = torch.transpose(src_padding_mask, 0, 1)
 
-		tgt_indicies = text2tensor(d, tgttext)
-		tgt = torch.unsqueeze(self.embed(tgt_indicies), 1)
-		tgt_padding_mask = torch.tensor([ float('-inf') if c == PADDING else 0 for c in  tgttext]).view(1, -1)
-		#print(src.shape, tgt.shape)
+		tgt_indicies = torch.cat([text2tensor(d, tgttext).view(-1, 1) for tgttext in tgttexts], dim=1)
+		tgt = self.embed(tgt_indicies)
+
+		tgt_padding_mask = torch.eq(tgt_indicies, d.word2idx[PADDING]).float()
+		tgt_padding_mask = tgt_padding_mask.masked_fill(tgt_padding_mask == 1, float('-inf')).masked_fill(tgt_padding_mask == 0, float(0.0))
+		tgt_padding_mask = torch.transpose(tgt_padding_mask, 0, 1)
+
+		# print(src.shape)
+		# print(tgt.shape)
+		# print(src_padding_mask.shape)
+		# print(tgt_padding_mask.shape)
+
 		output = self.transformer(src, tgt,
 								  tgt_mask=self.transformer.generate_square_subsequent_mask(LEN),
 								  src_key_padding_mask=src_padding_mask,
 								  tgt_key_padding_mask=tgt_padding_mask).view(-1, FEATURES)
+		output = self.lin_out(output)
 		output = self.log_softmax(output)
 		#print(output)
+		# print(output.shape)
+		# print(tgt_indicies.shape)
 
 		return output, tgt_indicies
 
@@ -102,14 +120,18 @@ optimizer = optim.Adam(model.parameters(), lr=0.0001)
 criterion = nn.NLLLoss()
 
 model.train()
-for epoch in range(40):
+for epoch in range(80):
 	epoch_loss = 0.
-	for sample in dataset:
+	for batch in range(BATCHES):
 	    optimizer.zero_grad()
-	    output, tgt_ref = model(sample[0], sample[1])
+	    q_chunk = dataset_questions[BLOCKSIZE * batch:BLOCKSIZE * (batch + 1)]
+	    a_chunk = dataset_answers[BLOCKSIZE * batch:BLOCKSIZE * (batch + 1)]
+	    #print(q_chunk)
+	    #print(a_chunk)
+	    output, tgt_ref = model(q_chunk, a_chunk)
 	    #print(output.shape)
 	    #print(tgt.shape)
-	    loss = criterion(output, tgt_ref)
+	    loss = criterion(output, tgt_ref.view(-1))
 	    loss.backward()
 	    optimizer.step()
 	    epoch_loss += loss.item()
@@ -118,20 +140,23 @@ for epoch in range(40):
 model.eval()
 print()
 
-training_questions = {sample[0] for sample in dataset}
-
-for i in range(15):
-	num1 = random.randint(0, 50)
-	num2 = random.randint(0, 50)
+training_questions = set(dataset_questions)
+correct = 0
+total = 25
+for i in range(total):
+	num1 = random.randint(0, 40)
+	num2 = random.randint(0, 40)
 	q, a = make_q_a(num1, num2)
-	output, tgt_ref = model(q, a)
+	output, tgt_ref = model([q], [a])
 	got=torch.argmax(output, 1)
 	#print(got)
 	#print(tgt_ref)
-	output_str = tensor2text(d, tgt_ref)
-	got_str = tensor2text(d, got)
+	output_str = tensor2text(d, tgt_ref.view(-1))
+	got_str = tensor2text(d, got.view(-1))
 
 	print("Q: {}+{} , A: {}. Seen before: {}".format(num1, num2, num1 + num2, q in training_questions))
 	print("Expected: '{}'".format(output_str))
 	print(colored("Got: '{}'".format(got_str), "blue" if output_str == got_str else "red"))
 	print()
+	correct += (output_str == got_str)
+print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100))
