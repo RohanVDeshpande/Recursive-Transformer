@@ -142,10 +142,11 @@ print()
 
 training_questions = set(dataset_questions)
 correct = 0
-total = 25
+total = 200
+seen = 0
 for i in range(total):
-	num1 = random.randint(0, 40)
-	num2 = random.randint(0, 40)
+	num1 = random.randint(0, 200)
+	num2 = random.randint(0, 200)
 	q, a = make_q_a(num1, num2)
 	output, tgt_ref = model([q], [a])
 	got=torch.argmax(output, 1)
@@ -159,4 +160,6 @@ for i in range(total):
 	print(colored("Got: '{}'".format(got_str), "blue" if output_str == got_str else "red"))
 	print()
 	correct += (output_str == got_str)
+	seen += (q in training_questions)
 print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100))
+print("{} of the {} test questions were already seen during training".format(seen, total))
