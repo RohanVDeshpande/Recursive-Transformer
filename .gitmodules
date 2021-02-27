@@ -1,3 +1,3 @@
 [submodule "mathematics_dataset"]
 	path = mathematics_dataset
-	url = git@github.com:ilee78/mathematics_dataset.git
+	url = https://github.com/ilee78/mathematics_dataset.git
