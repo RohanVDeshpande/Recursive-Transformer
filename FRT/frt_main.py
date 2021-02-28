@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import argparse
 import frt
 
 import data
@@ -12,12 +13,30 @@ import data
 from termcolor import colored
 from tqdm import tqdm
 
-# EPOCHS = 200
 # TRAIN_PATH = "mathematics_dataset/raw_data_tsv/super_simple_add_subtract.tsv"
 # TEST_PATH = "mathematics_dataset/raw_data_tsv/super_simple_add_subtract.tsv"
-EPOCHS = 200
+EPOCHS = 5 # change back to 200
 TRAIN_PATH = "mathematics_dataset/ssas.tsv"
 TEST_PATH = "mathematics_dataset/ssas.tsv"
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--mode', type=str, default=None,
+                    help="Choose train mode vs. test mode",
+					choices=["train", "test"])
+parser.add_argument('--writing_params_path',
+					help="Path to save the model after training",
+					default="trained_params")
+parser.add_argument('--reading_params_path',
+					help="Path of the model to load before testing",
+					default="trained_params")
+parser.add_argument('--outputs_path',
+					help="Path of outputs",
+					default="model_outputs")
+args = parser.parse_args()
+
+writing_params_path = args.writing_params_path
+reading_params_path = args.reading_params_path
+outputs_path = args.outputs_path
 
 dataset_config = {
 	"START" : u"\u2361",				# ह
@@ -48,50 +67,60 @@ model = frt.FRT(frt_config)
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 criterion = nn.NLLLoss()
 
-model.train()
-for epoch in range(EPOCHS):
-	epoch_loss = 0.
-	with tqdm(total=train_dataset.batches()//2) as prog:
-		for batch in range(train_dataset.batches()//2):
-			# print("Epoch {} Batch {} / {}".format(epoch, batch, train_dataset.batches()))
-			optimizer.zero_grad()
-			output, tgt = model(*train_dataset.get_data(batch))
-			loss = criterion(output, tgt.view(-1))
-			loss.backward()
-			optimizer.step()
-			epoch_loss += loss.item()
+if args.mode != "test": 	# "train" or None
+	model.train()
+	for epoch in range(EPOCHS):
+		epoch_loss = 0.
+		with tqdm(total=train_dataset.batches()//2) as prog:
+			for batch in range(train_dataset.batches()//2):
+				# print("Epoch {} Batch {} / {}".format(epoch, batch, train_dataset.batches()))
+				optimizer.zero_grad()
+				output, tgt = model(*train_dataset.get_data(batch))
+				loss = criterion(output, tgt.view(-1))
+				loss.backward()
+				optimizer.step()
+				epoch_loss += loss.item()
+				prog.update(1)
+			print("Epoch {}, Loss: {}".format(epoch, epoch_loss))
+
+	model.eval()
+
+	checkpt_model = model.modules()
+	torch.save(model.state_dict(), writing_params_path)
+	print(f"Saved {writing_params_path}")
+	
+	print()
+
+if args.mode != "train": 		# "test" or None
+	test_dataset = data.Dataset(train_dataset)
+	test_dataset.buildDataset(TEST_PATH)
+
+	correct = 0
+	total = 0
+
+	# if args.mode == "test":		# load saved parameters
+	# 	model.load_state_dict(reading_params_path)
+	# 	breakpoint()
+	with tqdm(total=test_dataset.batches()) as prog:
+		for i in range(test_dataset.batches()):
+
+			src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask = test_dataset.get_data(i)
+			output = model.predict(src_indicies, src_padding_mask, test_dataset.dictionary.word2idx[test_dataset.START])
+
+			question_strings = [ q_str.split(test_dataset.PADDING)[0] for q_str in test_dataset.tensor2text(src_indicies)]
+			target_strings = [ tgt_str.split(test_dataset.END)[0] for tgt_str in test_dataset.tensor2text(tgt_indicies)]
+			output_strings = [ out_str.split(test_dataset.END)[0] for out_str in test_dataset.tensor2text(output)]
+
+
+			for j in range(len(target_strings)):
+				question = question_strings[j]
+				pred = output_strings[j]
+				actual = target_strings[j]
+
+				print("Q: {} , A: {}".format(question, actual))
+				print(colored("Got: '{}'".format(pred), "blue" if actual == pred else "red"))
+				print()
+				correct += (actual == pred)
+				total += 1
 			prog.update(1)
-		print("Epoch {}, Loss: {}".format(epoch, epoch_loss))
-
-model.eval()
-print()
-
-test_dataset = data.Dataset(train_dataset)
-test_dataset.buildDataset(TEST_PATH)
-
-correct = 0
-total = 0
-
-with tqdm(total=test_dataset.batches()) as prog:
-	for i in range(test_dataset.batches()):
-
-		src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask = test_dataset.get_data(i)
-		output = model.predict(src_indicies, src_padding_mask, test_dataset.dictionary.word2idx[test_dataset.START])
-
-		question_strings = [ q_str.split(test_dataset.PADDING)[0] for q_str in test_dataset.tensor2text(src_indicies)]
-		target_strings = [ tgt_str.split(test_dataset.END)[0] for tgt_str in test_dataset.tensor2text(tgt_indicies)]
-		output_strings = [ out_str.split(test_dataset.END)[0] for out_str in test_dataset.tensor2text(output)]
-
-
-		for j in range(len(target_strings)):
-			question = question_strings[j]
-			pred = output_strings[j]
-			actual = target_strings[j]
-
-			print("Q: {} , A: {}".format(question, actual))
-			print(colored("Got: '{}'".format(pred), "blue" if actual == pred else "red"))
-			print()
-			correct += (actual == pred)
-			total += 1
-		prog.update(1)
-print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100))
+	print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100))
