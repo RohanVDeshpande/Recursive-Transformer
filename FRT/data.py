@@ -79,6 +79,7 @@ class Dataset(object):
         with open(path, 'r', encoding="utf8") as f:
             for line in f:
                 l = line.strip().split('\t')
+                # print(f'l = {l}')
                 q, a, = self.tokenizeQuestion(l[0]), self.tokenizeAnswer(l[1], l[2])
                 self.questions.append(q)
                 self.answers.append(a)
@@ -108,13 +109,13 @@ class Dataset(object):
             assert 0        # not implemented yet
 
     def get_data(self, batch_num):
+
         src_indicies = torch.cat([self.text2tensor(srctext).view(-1, 1) \
                                 for srctext in self.questions[self.BATCH_SIZE * batch_num : self.BATCH_SIZE * (batch_num + 1)]], dim=1)
 
         src_padding_mask = torch.eq(src_indicies, self.dictionary.word2idx[self.PADDING]).float()
         src_padding_mask = src_padding_mask.masked_fill(src_padding_mask == 1, float('-inf')).masked_fill(src_padding_mask == 0, float(0.0))
         src_padding_mask = torch.transpose(src_padding_mask, 0, 1)
-
 
         tgt_indicies = torch.cat([self.text2tensor(tgttext).view(-1, 1) \
                                 for tgttext in self.answers[self.BATCH_SIZE * batch_num : self.BATCH_SIZE * (batch_num + 1)]], dim=1)

@@ -1,5 +1,6 @@
 import math
 import random
+import pdb		# for debugging
 
 import torch
 import torch.nn as nn
@@ -10,10 +11,14 @@ import frt
 import data
 
 from termcolor import colored
+from tqdm import tqdm
 
-EPOCHS = 200
-TRAIN_PATH = "mathematics_dataset/raw_data_tsv/super_simple_add_subtract.tsv"
-TEST_PATH = "mathematics_dataset/raw_data_tsv/super_simple_add_subtract.tsv"
+# EPOCHS = 200
+# TRAIN_PATH = "mathematics_dataset/raw_data_tsv/super_simple_add_subtract.tsv"
+# TEST_PATH = "mathematics_dataset/raw_data_tsv/super_simple_add_subtract.tsv"
+EPOCHS = 5	# delete this after debugging
+TRAIN_PATH = "mathematics_dataset/ssas.tsv"
+TEST_PATH = "mathematics_dataset/ssas.tsv"
 
 dataset_config = {
 	"START" : u"\u2361",				# ह
@@ -21,8 +26,8 @@ dataset_config = {
 	"TGT_LOOP_SEP" : u"\u2325",			# क
 	"END" : u"\u2352",					# र
 	"PADDING" : u"\u2340",				# त
-	"SRC_LEN" : 8,
-	"TGT_LEN" : 8,
+	"SRC_LEN" : 32,
+	"TGT_LEN" : 32,
 	"BATCH_SIZE": 16
 }
 
@@ -47,16 +52,17 @@ criterion = nn.NLLLoss()
 model.train()
 for epoch in range(EPOCHS):
 	epoch_loss = 0.
-	for batch in range(train_dataset.batches()//2):
-		#print("Epoch {} Batch {} / {}".format(epoch, batch, train_dataset.batches()))
-		optimizer.zero_grad()
-		output, tgt = model(*train_dataset.get_data(batch))
-		loss = criterion(output, tgt.view(-1))
-		loss.backward()
-		optimizer.step()
-		epoch_loss += loss.item()
-	print("Epoch {}, Loss: {}".format(epoch, epoch_loss))
-
+	with tqdm(total=train_dataset.batches()//2) as prog:
+		for batch in range(train_dataset.batches()//2):
+			# print("Epoch {} Batch {} / {}".format(epoch, batch, train_dataset.batches()))
+			optimizer.zero_grad()
+			output, tgt = model(*train_dataset.get_data(batch))
+			loss = criterion(output, tgt.view(-1))
+			loss.backward()
+			optimizer.step()
+			epoch_loss += loss.item()
+			prog.update(1)
+		print("Epoch {}, Loss: {}".format(epoch, epoch_loss))
 
 model.eval()
 print()
@@ -71,7 +77,7 @@ for i in range(test_dataset.batches()):
 
 	src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask = test_dataset.get_data(i)
 	output = model.predict(src_indicies, src_padding_mask, test_dataset.dictionary.word2idx[test_dataset.START])
-
+	# breakpoint()
 	question_strings = [ q_str.split(test_dataset.PADDING)[0] for q_str in test_dataset.tensor2text(src_indicies)]
 	target_strings = [ tgt_str.split(test_dataset.END)[0] for tgt_str in test_dataset.tensor2text(tgt_indicies)]
 	output_strings = [ out_str.split(test_dataset.END)[0] for out_str in test_dataset.tensor2text(output)]

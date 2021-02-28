@@ -1,0 +1,9 @@
+name: cs224n_finalproj
+channels:
+  - defaults
+dependencies:
+  - python=3.7
+  - pytorch
+  - tqdm
+  - termcolor
+  - pip
