@@ -6,5 +6,5 @@
 	"PADDING" : "\u2340",
 	"SRC_LEN" : 16,
 	"TGT_LEN" : 16,
-	"BATCH_SIZE": 16
+	"BATCH_SIZE": 64
 }

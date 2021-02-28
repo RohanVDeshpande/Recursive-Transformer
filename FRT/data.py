@@ -114,15 +114,15 @@ class Dataset(object):
         src_indicies = torch.cat([self.text2tensor(srctext).view(-1, 1) \
                                 for srctext in self.questions[self.BATCH_SIZE * batch_num : self.BATCH_SIZE * (batch_num + 1)]], dim=1)
 
-        src_padding_mask = torch.eq(src_indicies, self.dictionary.word2idx[self.PADDING]).float()
-        src_padding_mask = src_padding_mask.masked_fill(src_padding_mask == 1, float('-inf')).masked_fill(src_padding_mask == 0, float(0.0))
+        src_padding_mask = torch.eq(src_indicies, self.dictionary.word2idx[self.PADDING])
+        # src_padding_mask = src_padding_mask.masked_fill(src_padding_mask == 1, float('-inf')).masked_fill(src_padding_mask == 0, float(0.0))
         src_padding_mask = torch.transpose(src_padding_mask, 0, 1)
 
         tgt_indicies = torch.cat([self.text2tensor(tgttext).view(-1, 1) \
                                 for tgttext in self.answers[self.BATCH_SIZE * batch_num : self.BATCH_SIZE * (batch_num + 1)]], dim=1)
 
-        tgt_padding_mask = torch.eq(tgt_indicies, self.dictionary.word2idx[self.PADDING]).float()
-        tgt_padding_mask = tgt_padding_mask.masked_fill(tgt_padding_mask == 1, float('-inf')).masked_fill(tgt_padding_mask == 0, float(0.0))
+        tgt_padding_mask = torch.eq(tgt_indicies, self.dictionary.word2idx[self.PADDING])
+        # tgt_padding_mask = tgt_padding_mask.masked_fill(tgt_padding_mask == 1, float('-inf')).masked_fill(tgt_padding_mask == 0, float(0.0))
         tgt_padding_mask = torch.transpose(tgt_padding_mask, 0, 1)
 
         return src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask

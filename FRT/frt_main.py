@@ -37,7 +37,7 @@ assert os.path.isdir("tb/"), "You need a folder called 'tb' for tensorboard"
 # torch.manual_seed(args.seed)
 if torch.cuda.is_available():
     if not args.cuda:
-    	utils.confirm("You have a CUDA device, so you should probably run with --cuda.".format(args.save))
+    	utils.confirm("You have a CUDA device, so you should probably run with --cuda.")
     else:
     	print("Using CUDA device")
 
@@ -65,6 +65,7 @@ model_config["TOKENS"] = dataset.tokens()
 model_config["TGT_LEN"] = dataset.TGT_LEN
 
 model = frt.FRT(model_config)
+model.device = device
 model.to(device)
 
 if args.mode == "train":
