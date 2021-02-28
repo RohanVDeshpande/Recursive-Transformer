@@ -1,6 +1,5 @@
 import math
 import random
-import pdb		# for debugging
 
 import torch
 import torch.nn as nn
@@ -16,7 +15,7 @@ from tqdm import tqdm
 # EPOCHS = 200
 # TRAIN_PATH = "mathematics_dataset/raw_data_tsv/super_simple_add_subtract.tsv"
 # TEST_PATH = "mathematics_dataset/raw_data_tsv/super_simple_add_subtract.tsv"
-EPOCHS = 5	# delete this after debugging
+EPOCHS = 200
 TRAIN_PATH = "mathematics_dataset/ssas.tsv"
 TEST_PATH = "mathematics_dataset/ssas.tsv"
 
@@ -78,7 +77,7 @@ with tqdm(total=test_dataset.batches()) as prog:
 
 		src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask = test_dataset.get_data(i)
 		output = model.predict(src_indicies, src_padding_mask, test_dataset.dictionary.word2idx[test_dataset.START])
-		# breakpoint()
+
 		question_strings = [ q_str.split(test_dataset.PADDING)[0] for q_str in test_dataset.tensor2text(src_indicies)]
 		target_strings = [ tgt_str.split(test_dataset.END)[0] for tgt_str in test_dataset.tensor2text(tgt_indicies)]
 		output_strings = [ out_str.split(test_dataset.END)[0] for out_str in test_dataset.tensor2text(output)]
