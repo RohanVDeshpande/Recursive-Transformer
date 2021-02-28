@@ -14,7 +14,7 @@ import frt
 
 import data
 from tqdm import tqdm
-#from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 
 parser = argparse.ArgumentParser(description='Forced Recursive Transformer')
@@ -31,6 +31,7 @@ parser.add_argument('--cuda', action='store_true',
 args = parser.parse_args()
 
 assert os.path.isdir("output/"), "You need a folder called 'output' in order to save model data / test predictions"
+assert os.path.isdir("tb/"), "You need a folder called 'tb' for tensorboard"
 
 # Set the random seed manually for reproducibility.
 # torch.manual_seed(args.seed)
@@ -68,6 +69,9 @@ model.to(device)
 
 if args.mode == "train":
 	assert model_path is not None, "Model path not set up"
+
+	writer = SummaryWriter("tb/", comment=utils.config2comment(model_config, dataset_config))
+
 	if model_config["OPTIMIZER"] == "ADAM":
 		optimizer = optim.Adam(model.parameters(), lr=model_config["LR"])
 	criterion = nn.NLLLoss()
@@ -75,6 +79,7 @@ if args.mode == "train":
 	EPOCHS = model_config["EPOCHS"]
 
 	model.train()
+	iteration=0
 	for epoch in range(EPOCHS):
 		epoch_loss = 0.
 		batches = dataset.batches()
@@ -87,6 +92,8 @@ if args.mode == "train":
 				optimizer.step()
 				epoch_loss += loss.item()
 				prog.update(1)
+				writer.add_scalar("Loss/train", loss.item(), iteration)
+				iteration += 1
 			epoch_loss /= batches
 			print("Epoch {}, Loss: {}".format(epoch, epoch_loss))
 

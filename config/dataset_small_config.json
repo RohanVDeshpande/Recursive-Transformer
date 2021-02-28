@@ -4,7 +4,7 @@
 	"TGT_LOOP_SEP" : "\u2325",
 	"END" : "\u2352",
 	"PADDING" : "\u2340",
-	"SRC_LEN" : 32,
-	"TGT_LEN" : 32,
+	"SRC_LEN" : 16,
+	"TGT_LEN" : 16,
 	"BATCH_SIZE": 16
 }
