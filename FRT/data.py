@@ -56,8 +56,8 @@ class Dataset(object):
         q += (self.SRC_LEN - len(q)) * self.PADDING
         return q
 
-    def tokenizeAnswer(self, a):
-        a += self.TGT_LOOP_SEP + "1" + self.END            # hardcoded loop done. change this later
+    def tokenizeAnswer(self, a, done):
+        a += self.TGT_LOOP_SEP + done + self.END            # hardcoded loop done. change this later
         assert self.TGT_LEN - len(a) >= 0
         a += (self.TGT_LEN - len(a)) * self.PADDING
         return a
@@ -75,10 +75,10 @@ class Dataset(object):
         with open(path, 'r', encoding="utf8") as f:
             for line in f:
                 l = line.strip().split('\t')
-                q, a = self.tokenizeQuestion(l[0]), self.tokenizeAnswer(l[1])
+                q, a, = self.tokenizeQuestion(l[0]), self.tokenizeAnswer(l[1], l[2])
                 self.questions.append(q)
                 self.answers.append(a)
-                self.types.append(l[2])
+                self.types.append(l[3])
 
                 self.populateDictionary(q)
                 self.populateDictionary(a)
