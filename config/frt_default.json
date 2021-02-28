@@ -2,10 +2,11 @@
 	"NAME": "FRT_1.0",
 	"FEATURES" : 32,
 	"HEADS" : 8,
-	"ENC_LAYERS" : 4,
-	"DEC_LAYERS" : 4,
+	"ENC_LAYERS" : 2,
+	"DEC_LAYERS" : 2,
 	"FEED_FORWARD" : 64,
 	"OPTIMIZER": "ADAM",
 	"LR": 0.0001,
-	"EPOCHS": 200
+	"EPOCHS": 2,
+	"DATASET_CONFIG": "config/dataset_small_config.json"
 }

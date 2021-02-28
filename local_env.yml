@@ -6,4 +6,5 @@ dependencies:
   - pytorch
   - tqdm
   - termcolor
+  - tensorflow
   - pip
