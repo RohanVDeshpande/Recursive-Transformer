@@ -85,7 +85,6 @@ if args.mode != "test": 	# "train" or None
 
 	model.eval()
 
-	checkpt_model = model.modules()
 	torch.save(model.state_dict(), writing_params_path)
 	print(f"Saved {writing_params_path}")
 	
@@ -98,9 +97,9 @@ if args.mode != "train": 		# "test" or None
 	correct = 0
 	total = 0
 
-	# if args.mode == "test":		# load saved parameters
-	# 	model.load_state_dict(reading_params_path)
-	# 	breakpoint()
+	if args.mode == "test":		# load saved parameters
+		model.load_state_dict(torch.load(reading_params_path))
+
 	with tqdm(total=test_dataset.batches()) as prog:
 		for i in range(test_dataset.batches()):
 
@@ -110,7 +109,6 @@ if args.mode != "train": 		# "test" or None
 			question_strings = [ q_str.split(test_dataset.PADDING)[0] for q_str in test_dataset.tensor2text(src_indicies)]
 			target_strings = [ tgt_str.split(test_dataset.END)[0] for tgt_str in test_dataset.tensor2text(tgt_indicies)]
 			output_strings = [ out_str.split(test_dataset.END)[0] for out_str in test_dataset.tensor2text(output)]
-
 
 			for j in range(len(target_strings)):
 				question = question_strings[j]
