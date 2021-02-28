@@ -73,24 +73,26 @@ test_dataset.buildDataset(TEST_PATH)
 correct = 0
 total = 0
 
-for i in range(test_dataset.batches()):
+with tqdm(total=test_dataset.batches()) as prog:
+	for i in range(test_dataset.batches()):
 
-	src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask = test_dataset.get_data(i)
-	output = model.predict(src_indicies, src_padding_mask, test_dataset.dictionary.word2idx[test_dataset.START])
-	# breakpoint()
-	question_strings = [ q_str.split(test_dataset.PADDING)[0] for q_str in test_dataset.tensor2text(src_indicies)]
-	target_strings = [ tgt_str.split(test_dataset.END)[0] for tgt_str in test_dataset.tensor2text(tgt_indicies)]
-	output_strings = [ out_str.split(test_dataset.END)[0] for out_str in test_dataset.tensor2text(output)]
+		src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask = test_dataset.get_data(i)
+		output = model.predict(src_indicies, src_padding_mask, test_dataset.dictionary.word2idx[test_dataset.START])
+		# breakpoint()
+		question_strings = [ q_str.split(test_dataset.PADDING)[0] for q_str in test_dataset.tensor2text(src_indicies)]
+		target_strings = [ tgt_str.split(test_dataset.END)[0] for tgt_str in test_dataset.tensor2text(tgt_indicies)]
+		output_strings = [ out_str.split(test_dataset.END)[0] for out_str in test_dataset.tensor2text(output)]
 
 
-	for j in range(len(target_strings)):
-		question = question_strings[j]
-		pred = output_strings[j]
-		actual = target_strings[j]
+		for j in range(len(target_strings)):
+			question = question_strings[j]
+			pred = output_strings[j]
+			actual = target_strings[j]
 
-		print("Q: {} , A: {}".format(question, actual))
-		print(colored("Got: '{}'".format(pred), "blue" if actual == pred else "red"))
-		print()
-		correct += (actual == pred)
-		total += 1
+			print("Q: {} , A: {}".format(question, actual))
+			print(colored("Got: '{}'".format(pred), "blue" if actual == pred else "red"))
+			print()
+			correct += (actual == pred)
+			total += 1
+		prog.update(1)
 print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100))
