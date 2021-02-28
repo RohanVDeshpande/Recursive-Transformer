@@ -11,9 +11,9 @@ import data
 
 from termcolor import colored
 
-EPOCHS = 20
-TRAIN_PATH = "mathematics_dataset/raw_data_tsv/train-easy/arithmetic__add_or_sub.tsv"
-TEST_PATH = "mathematics_dataset/raw_data_tsv/train-easy/arithmetic__add_or_sub.tsv"
+EPOCHS = 200
+TRAIN_PATH = "mathematics_dataset/raw_data_tsv/super_simple_add_subtract.tsv"
+TEST_PATH = "mathematics_dataset/raw_data_tsv/super_simple_add_subtract.tsv"
 
 dataset_config = {
 	"START" : u"\u2361",				# ह
@@ -21,8 +21,8 @@ dataset_config = {
 	"TGT_LOOP_SEP" : u"\u2325",			# क
 	"END" : u"\u2352",					# र
 	"PADDING" : u"\u2340",				# त
-	"SRC_LEN" : 32,
-	"TGT_LEN" : 32,
+	"SRC_LEN" : 8,
+	"TGT_LEN" : 8,
 	"BATCH_SIZE": 16
 }
 
@@ -32,10 +32,10 @@ train_dataset.buildDataset(TRAIN_PATH)
 frt_config = {
 	"TOKENS" : train_dataset.tokens(),
 	"TGT_LEN": train_dataset.TGT_LEN,
-	"FEATURES" : 16,
-	"HEADS" : 2,
-	"ENC_LAYERS" : 2,
-	"DEC_LAYERS" : 2,
+	"FEATURES" : 32,
+	"HEADS" : 8,
+	"ENC_LAYERS" : 4,
+	"DEC_LAYERS" : 4,
 	"FEED_FORWARD" : 64
 }
 

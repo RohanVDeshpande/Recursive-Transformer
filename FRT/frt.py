@@ -53,7 +53,7 @@ class FRT(nn.Module):
 		output = self.transformer(src, tgt,
 								  tgt_mask=self.transformer.generate_square_subsequent_mask(self.TGT_LEN),
 								  src_key_padding_mask=src_padding_mask)
-
+		#tgt_key_padding_mask=tgt_padding_mask
 		output = output[:-1,:, :].view(-1, self.FEATURES)
 		output = self.lin_out(output)
 		output = self.log_softmax(output)
