@@ -37,6 +37,7 @@ class Dataset(object):
             self.dictionary = copy.deepcopy(config.dictionary)
             self.dictionary.freeze_dict = True
             print(self.dictionary.idx2word)
+            self.START = config.START
             self.SRC_LEN = config.SRC_LEN
             self.TGT_LEN = config.TGT_LEN
             self.PADDING = config.PADDING
@@ -44,6 +45,7 @@ class Dataset(object):
             self.TGT_LOOP_SEP = config.TGT_LOOP_SEP
             self.BATCH_SIZE = config.BATCH_SIZE
 
+        assert self.START is not None
         assert self.SRC_LEN is not None
         assert self.TGT_LEN is not None
         assert self.PADDING is not None
@@ -52,15 +54,15 @@ class Dataset(object):
         assert self.BATCH_SIZE is not None
 
     def tokenizeQuestion(self, q):
-        #q = self.START + q
-        assert self.SRC_LEN - len(q) >= 0
+        q = self.START + q + self.END
+        assert self.SRC_LEN - len(q) >= 0, "Q length is {} but SRC_LEN={}".format(len(q), self.SRC_LEN)
         q += (self.SRC_LEN - len(q)) * self.PADDING
         return q
 
     def tokenizeAnswer(self, a, done):
-        #a = self.START + a
-        a += self.TGT_LOOP_SEP + done + self.END            # hardcoded loop done. change this later
-        assert self.TGT_LEN - len(a) >= 0
+        a = self.START + a
+        a += self.TGT_LOOP_SEP + done + self.END
+        assert self.TGT_LEN - len(a) >= 0, "A length is {} but TGT_LEN={}".format(len(a), self.TGT_LEN)
         a += (self.TGT_LEN - len(a)) * self.PADDING
         return a
 

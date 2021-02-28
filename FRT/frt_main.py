@@ -11,17 +11,18 @@ import data
 
 from termcolor import colored
 
-EPOCHS = 3
+EPOCHS = 20
 TRAIN_PATH = "mathematics_dataset/raw_data_tsv/train-easy/arithmetic__add_or_sub.tsv"
 TEST_PATH = "mathematics_dataset/raw_data_tsv/train-easy/arithmetic__add_or_sub.tsv"
 
 dataset_config = {
+	"START" : u"\u2361",				# ह
 	"SRC_TGT_SEP": u"\u2358",			# श
 	"TGT_LOOP_SEP" : u"\u2325",			# क
 	"END" : u"\u2352",					# र
 	"PADDING" : u"\u2340",				# त
-	"SRC_LEN" : 64,
-	"TGT_LEN" : 64,
+	"SRC_LEN" : 32,
+	"TGT_LEN" : 32,
 	"BATCH_SIZE": 16
 }
 
@@ -66,14 +67,14 @@ test_dataset.buildDataset(TEST_PATH)
 correct = 0
 total = 0
 
-for i in range(test_dataset.batches()//2, test_dataset.batches()):
+for i in range(test_dataset.batches()):
 
-	src_indicies, src_padding_mask, tgt_indicies, _ = test_dataset.get_data(i)
-	output = model.predict(src_indicies, src_padding_mask)
+	src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask = test_dataset.get_data(i)
+	output = model.predict(src_indicies, src_padding_mask, test_dataset.dictionary.word2idx[test_dataset.START])
 
-	question_strings = [ q_str.split(dataset_config["PADDING"])[0] for q_str in test_dataset.tensor2text(src_indicies)]
-	target_strings = [ tgt_str.split(dataset_config["END"])[0] for tgt_str in test_dataset.tensor2text(tgt_indicies)]
-	output_strings = [ out_str.split(dataset_config["END"])[0] for out_str in test_dataset.tensor2text(output)]
+	question_strings = [ q_str.split(test_dataset.PADDING)[0] for q_str in test_dataset.tensor2text(src_indicies)]
+	target_strings = [ tgt_str.split(test_dataset.END)[0] for tgt_str in test_dataset.tensor2text(tgt_indicies)]
+	output_strings = [ out_str.split(test_dataset.END)[0] for out_str in test_dataset.tensor2text(output)]
 
 
 	for j in range(len(target_strings)):
