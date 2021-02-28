@@ -1,0 +1,10 @@
+{
+	"START" : u"\u2361",
+	"SRC_TGT_SEP": u"\u2358",
+	"TGT_LOOP_SEP" : u"\u2325",
+	"END" : u"\u2352",
+	"PADDING" : u"\u2340",
+	"SRC_LEN" : 32,
+	"TGT_LEN" : 32,
+	"BATCH_SIZE": 16
+}

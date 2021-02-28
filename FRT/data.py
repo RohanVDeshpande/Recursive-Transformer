@@ -28,6 +28,7 @@ class Dataset(object):
         self.answers = []
         self.types = []
         self.sources = []
+        self.device = "cpu"     # default device
 
         if isinstance(config, dict):
             self.dictionary = Dictionary()
@@ -95,7 +96,7 @@ class Dataset(object):
         return math.ceil(self.len() / self.BATCH_SIZE)
 
     def text2tensor(self, text):
-        return torch.tensor([ self.dictionary.word2idx[c] for c in text], dtype=torch.long)
+        return torch.tensor([ self.dictionary.word2idx[c] for c in text], dtype=torch.long, device=self.device)
 
 
     # t -> (T, N)
