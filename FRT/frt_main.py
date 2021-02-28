@@ -61,30 +61,29 @@ model.eval()
 print()
 
 test_dataset = data.Dataset(train_dataset)
-test_dataset.BATCH_SIZE = 1
 test_dataset.buildDataset(TEST_PATH)
 
 correct = 0
 total = 0
 
-printed = 0
 for i in range(test_dataset.batches()//2, test_dataset.batches()):
 
-	output, tgt = model(*test_dataset.get_data(i))
-	got=torch.argmax(output, 1)
-	#print(got)
-	#print(tgt_ref)
+	src_indicies, src_padding_mask, tgt_indicies, _ = test_dataset.get_data(i)
+	output = model.predict(src_indicies, src_padding_mask)
 
-	output_str = test_dataset.tensor2text(tgt.view(-1))
-	got_str = test_dataset.tensor2text(got.view(-1))
+	question_strings = [ q_str.split(dataset_config.PADDING)[0] for q_str in test_dataset.tensor2text(src_indicies)]
+	target_strings = [ tgt_str.split(dataset_config.END)[0] for tgt_str in test_dataset.tensor2text(tgt_indicies)]
+	output_strings = [ out_str.split(dataset_config.END)[0] for out_str in test_dataset.tensor2text(output)]
 
-	if printed < 100:
-		print("Q: {} , A: {}".format(test_dataset.questions[i].split(test_dataset.PADDING)[0],
-													  test_dataset.answers[i].split(test_dataset.TGT_LOOP_SEP)[0]))
-		print("Expected: '{}'".format(output_str))
-		print(colored("Got: '{}'".format(got_str), "blue" if output_str == got_str else "red"))
+
+	for j in range(target_strings):
+		question = question_strings[j]
+		pred = output_strings[j]
+		actual = target_strings[j]
+
+		print("Q: {} , A: {}".format(question, actual))
+		print(colored("Got: '{}'".format(pred), "blue" if actual == pred else "red"))
 		print()
-		printed += 1
-	correct += (output_str == got_str)
-	total += 1
+		correct += (actual == pred)
+		total += 1
 print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100))

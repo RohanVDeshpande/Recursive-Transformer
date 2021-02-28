@@ -52,3 +52,29 @@ class FRT(nn.Module):
 		output = self.log_softmax(output)
 
 		return output, tgt_indicies
+
+
+	def predict(self, src_indicies, src_padding_mask):
+		src = self.embed(src_indicies)
+		memory = self.transformer.encoder(src, mask=src_mask, src_key_padding_mask=src_padding_mask)
+
+		tgt_indicies = torch.zeros(1, src_indicies.shape[1])							# (1, N)
+		#tgt = torch.full((1, src_indicies.shape[1], self.FEATURES), start_token_index)	# (1, N, E)
+
+		# tgt_key_padding_mask=???
+		steps = math.round(1.5 * self.TGT_LEN)
+		for k in steps:
+			tgt = self.embed(tgt_indicies)		# (1, N, E)
+        	output = self.transformer.decoder(tgt, memory, tgt_mask=self.transformer.generate_square_subsequent_mask(k + 1))
+        	# output -> (T, N, E)
+
+        	output = output[-1, :, :]	# (1, N, E)
+
+        	output = self.lin_out(output)
+			output = self.log_softmax(output)
+			output = torch.argmax(output, 1)
+
+			tgt_indicies[-1, :] = output
+			tgt_indicies = torch.cat((tgt_indicies, torch.zeros(1, src_indicies.shape[1])))
+
+		return tgt_indicies

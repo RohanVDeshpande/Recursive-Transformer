@@ -52,11 +52,13 @@ class Dataset(object):
         assert self.BATCH_SIZE is not None
 
     def tokenizeQuestion(self, q):
+        #q = self.START + q
         assert self.SRC_LEN - len(q) >= 0
         q += (self.SRC_LEN - len(q)) * self.PADDING
         return q
 
     def tokenizeAnswer(self, a, done):
+        #a = self.START + a
         a += self.TGT_LOOP_SEP + done + self.END            # hardcoded loop done. change this later
         assert self.TGT_LEN - len(a) >= 0
         a += (self.TGT_LEN - len(a)) * self.PADDING
@@ -92,9 +94,14 @@ class Dataset(object):
     def text2tensor(self, text):
         return torch.tensor([ self.dictionary.word2idx[c] for c in text], dtype=torch.long)
 
+
+    # t -> (T, N)
+
     def tensor2text(self, t):
         if len(t.shape) == 1:
             return "".join([self.dictionary.idx2word[idx] for idx in t])
+        elif len(t.shape) == 2:
+            return [ "".join([self.dictionary.idx2word[t[j][i]] for j in range(t.shape[0])]) for i in range(t.shape[1])]
         else:
             assert 0        # not implemented yet
 
