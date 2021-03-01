@@ -7,6 +7,6 @@
 	"FEED_FORWARD" : 64,
 	"OPTIMIZER": "ADAM",
 	"LR": 0.0001,
-	"EPOCHS": 2,
+	"EPOCHS": 1000,
 	"DATASET_CONFIG": "config/dataset_small_config.json"
 }

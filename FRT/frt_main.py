@@ -5,7 +5,9 @@ import json
 import utils
 from utils import AverageMeter
 import os
+import sys
 import time
+import datetime
 
 import torch
 import torch.nn as nn
@@ -50,8 +52,10 @@ device = torch.device("cuda" if args.cuda else "cpu")
 
 with open(args.model_config) as f:
   model_config = json.load(f)
-  model_path = "output/{}.pt".format(model_config["NAME"])
-  prediction_path = "output/{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0])
+  timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+  model_path = "output/{}_{}.pt".format(model_config["NAME"], timestamp)
+  prediction_path = "output/{}_{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0], timestamp)
+  tb_log_path = "tb/{}_{}".format(model_config["NAME"], timestamp)
 
   if args.mode == "train" and os.path.exists(model_path):
     utils.confirm("Re-training the model will overwrite the following file: {}".format(model_path))
@@ -79,7 +83,7 @@ model.to(device)
 if args.mode == "train":
 	assert model_path is not None, "Model path not set up"
 
-	writer = SummaryWriter("tb/", comment=utils.config2comment(model_config, dataset_config))
+	writer = SummaryWriter(tb_log_path, comment=utils.config2comment(model_config, dataset_config))
 
 	if model_config["OPTIMIZER"] == "ADAM":
 		optimizer = optim.Adam(model.parameters(), lr=model_config["LR"])
@@ -89,50 +93,55 @@ if args.mode == "train":
 
 	model.train()
 	iteration=0
-	for epoch in range(EPOCHS):
-		epoch_loss = 0.
-		with tqdm(total=len(dataset)) as prog:
-			batch_time = AverageMeter()
-			data_time = AverageMeter()
-			update_time = AverageMeter()
+	try:
+		for epoch in range(EPOCHS):
+			epoch_loss = 0.
+			with tqdm(total=len(dataset)) as prog:
+				batch_time = AverageMeter()
+				data_time = AverageMeter()
+				update_time = AverageMeter()
 
-			batch_start_time = time.time()
-			for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader):
-
-				src_indicies = src_indicies.to(device)
-				#src_padding_mask = src_padding_mask.to(device)
-				tgt_indicies = tgt_indicies.to(device)
-				#tgt_padding_mask = tgt_padding_mask.to(device)
-				#src_indicies = src_indicies.transpose(0, 1)
-				#tgt_indicies = tgt_indicies.transpose(0, 1)
-
-				data_time.update(time.time() - batch_start_time) # data loading time
-
-				update_start_time = time.time()
-
-				optimizer.zero_grad()
-				output, tgt = model(src_indicies, tgt_indicies)
-				loss = criterion(output, tgt.view(-1))
-				loss.backward()
-				optimizer.step()
-
-				update_time.update(time.time() - update_start_time)
-
-				epoch_loss += loss.item()
-				prog.update(dataloader.batch_size)
-				
-				batch_time.update(time.time() - batch_start_time)
 				batch_start_time = time.time()
+				for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader):
 
-				if i % 16 == 0:
-					print('avg data load time: {}\n'
-						  'avg update time: {}\n'
-						  'avg total batch time: {}'.format(data_time.avg, update_time.avg, batch_time.avg))
-				#writer.add_scalar("Loss/train", loss.item(), iteration)
-				#iteration += 1
-			epoch_loss /= len(dataset)
-			print("Epoch {}, Loss: {}".format(epoch, epoch_loss))
+					src_indicies = src_indicies.to(device)
+					#src_padding_mask = src_padding_mask.to(device)
+					tgt_indicies = tgt_indicies.to(device)
+					#tgt_padding_mask = tgt_padding_mask.to(device)
+					#src_indicies = src_indicies.transpose(0, 1)
+					#tgt_indicies = tgt_indicies.transpose(0, 1)
 
+					data_time.update(time.time() - batch_start_time) # data loading time
+
+					update_start_time = time.time()
+
+					optimizer.zero_grad()
+					output, tgt = model(src_indicies, tgt_indicies)
+					loss = criterion(output, tgt.view(-1))
+					loss.backward()
+					optimizer.step()
+
+					update_time.update(time.time() - update_start_time)
+
+					epoch_loss += loss.item()
+					prog.update(dataloader.batch_size)
+					
+					batch_time.update(time.time() - batch_start_time)
+					batch_start_time = time.time()
+
+					# if i % 16 == 0:
+					# 	print('avg data load time: {}\n'
+					# 		  'avg update time: {}\n'
+					# 		  'avg total batch time: {}'.format(data_time.avg, update_time.avg, batch_time.avg))
+					writer.add_scalar("Loss/train", loss.item(), iteration)
+					iteration += 1
+				epoch_loss /= len(dataset)
+				print("Epoch {}, Loss: {}".format(epoch, epoch_loss))
+	except:
+		print('-' * 89)
+		print('Exiting from training early')
+		
+	print('Saving model to {}'.format(model_path))
 	torch.save(model.state_dict(), model_path)
 
 elif args.mode == "test":
