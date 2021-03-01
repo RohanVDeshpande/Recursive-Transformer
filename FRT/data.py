@@ -95,7 +95,7 @@ class Dataset(Dataset):
 
 
     def text2tensor(self, text):
-        return torch.tensor([ self.dictionary.word2idx[c] for c in text], dtype=torch.long, device=self.device)
+        return torch.tensor([ self.dictionary.word2idx[c] for c in text], dtype=torch.long)
 
 
     # t -> (T, N)

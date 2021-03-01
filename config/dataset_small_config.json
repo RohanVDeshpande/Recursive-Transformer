@@ -6,7 +6,7 @@
 	"PADDING" : "\u2340",
 	"SRC_LEN" : 16,
 	"TGT_LEN" : 16,
-	"BATCH_SIZE": 64,
+	"BATCH_SIZE": 16,
 	"SHUFFLE": false,
 	"WORKERS": 4,
 	"PIN_MEMORY": false,

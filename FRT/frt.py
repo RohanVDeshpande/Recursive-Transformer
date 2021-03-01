@@ -46,15 +46,15 @@ class FRT(nn.Module):
 	    return mask
 
 
-	def forward(self, src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask):
+	def forward(self, src_indicies, tgt_indicies):
 		src = self.embed(src_indicies)
 		tgt = self.embed(tgt_indicies)
 
 		tgt_mask = self.transformer.generate_square_subsequent_mask(self.TGT_LEN).to(self.device)
 
 		output = self.transformer(src, tgt,
-								  tgt_mask=tgt_mask,
-								  src_key_padding_mask=src_padding_mask)
+								  tgt_mask=tgt_mask)
+								  #src_key_padding_mask=src_padding_mask)
 		#tgt_key_padding_mask=tgt_padding_mask
 		output = output[:-1,:, :].view(-1, self.FEATURES)
 		output = self.lin_out(output)

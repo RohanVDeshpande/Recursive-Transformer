@@ -65,7 +65,7 @@ dataset.device = device
 
 dataloader = DataLoader(dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],
            pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
-           persistent_workers=False, collate_fn=data.dataset_collate_fn)
+           persistent_workers=True, collate_fn=data.dataset_collate_fn)
 
 model_config["TOKENS"] = dataset.tokens()
 model_config["TGT_LEN"] = dataset.TGT_LEN
@@ -91,18 +91,22 @@ if args.mode == "train":
 		epoch_loss = 0.
 		with tqdm(total=len(dataset)) as prog:
 			for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in dataloader:
-				#src_indicies = src_indicies.transpose(0, 1)
-				#tgt_indicies = tgt_indicies.transpose(0, 1)
-				optimizer.zero_grad()
-				output, tgt = model(src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask)
-				loss = criterion(output, tgt.view(-1))
-				loss.backward()
-				optimizer.step()
-				epoch_loss += loss.item()
-				prog.update(1)
-				writer.add_scalar("Loss/train", loss.item(), iteration)
-				iteration += 1
-			epoch_loss /= batches
+                            src_indicies = src_indicies.to(device)
+                            #src_padding_mask = src_padding_mask.to(device)
+                            tgt_indicies = tgt_indicies.to(device)
+                            #tgt_padding_mask = tgt_padding_mask.to(device)
+                            #src_indicies = src_indicies.transpose(0, 1)
+                            #tgt_indicies = tgt_indicies.transpose(0, 1)
+                            optimizer.zero_grad()
+                            output, tgt = model(src_indicies, tgt_indicies)
+                            loss = criterion(output, tgt.view(-1))
+                            loss.backward()
+                            optimizer.step()
+                            epoch_loss += loss.item()
+                            prog.update(1)
+                            #writer.add_scalar("Loss/train", loss.item(), iteration)
+                            #iteration += 1
+			epoch_loss /= len(dataset)
 			print("Epoch {}, Loss: {}".format(epoch, epoch_loss))
 
 	torch.save(model.state_dict(), model_path)
