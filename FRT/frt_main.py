@@ -3,7 +3,9 @@ import random
 from termcolor import colored
 import json
 import utils
+from utils import AverageMeter
 import os
+import time
 
 import torch
 import torch.nn as nn
@@ -90,22 +92,44 @@ if args.mode == "train":
 	for epoch in range(EPOCHS):
 		epoch_loss = 0.
 		with tqdm(total=len(dataset)) as prog:
-			for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in dataloader:
-                            src_indicies = src_indicies.to(device)
-                            #src_padding_mask = src_padding_mask.to(device)
-                            tgt_indicies = tgt_indicies.to(device)
-                            #tgt_padding_mask = tgt_padding_mask.to(device)
-                            #src_indicies = src_indicies.transpose(0, 1)
-                            #tgt_indicies = tgt_indicies.transpose(0, 1)
-                            optimizer.zero_grad()
-                            output, tgt = model(src_indicies, tgt_indicies)
-                            loss = criterion(output, tgt.view(-1))
-                            loss.backward()
-                            optimizer.step()
-                            epoch_loss += loss.item()
-                            prog.update(1)
-                            #writer.add_scalar("Loss/train", loss.item(), iteration)
-                            #iteration += 1
+			batch_time = AverageMeter()
+			data_time = AverageMeter()
+			update_time = AverageMeter()
+
+			batch_start_time = time.time()
+			for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader):
+
+				src_indicies = src_indicies.to(device)
+				#src_padding_mask = src_padding_mask.to(device)
+				tgt_indicies = tgt_indicies.to(device)
+				#tgt_padding_mask = tgt_padding_mask.to(device)
+				#src_indicies = src_indicies.transpose(0, 1)
+				#tgt_indicies = tgt_indicies.transpose(0, 1)
+
+				data_time.update(time.time() - batch_start_time) # data loading time
+
+				update_start_time = time.time()
+
+				optimizer.zero_grad()
+				output, tgt = model(src_indicies, tgt_indicies)
+				loss = criterion(output, tgt.view(-1))
+				loss.backward()
+				optimizer.step()
+
+				update_time.update(time.time() - update_start_time)
+
+				epoch_loss += loss.item()
+				prog.update(dataloader.batch_size)
+				
+				batch_time.update(time.time() - batch_start_time)
+				batch_start_time = time.time()
+
+				if i % 16 == 0:
+					print('avg data load time: {}\n'
+						  'avg update time: {}\n'
+						  'avg total batch time: {}'.format(data_time.avg, update_time.avg, batch_time.avg))
+				#writer.add_scalar("Loss/train", loss.item(), iteration)
+				#iteration += 1
 			epoch_loss /= len(dataset)
 			print("Epoch {}, Loss: {}".format(epoch, epoch_loss))
 
