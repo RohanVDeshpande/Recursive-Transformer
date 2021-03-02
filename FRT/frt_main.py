@@ -33,6 +33,7 @@ parser.add_argument('--model-config', type=str, required=True,
                     help='Model json config')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
+parser.add_argument('--params', type=str, help='Model params path for test')
 
 args = parser.parse_args()
 
@@ -87,6 +88,8 @@ if args.mode == "train":
 
 	if model_config["OPTIMIZER"] == "ADAM":
 		optimizer = optim.Adam(model.parameters(), lr=model_config["LR"])
+	elif model_config["OPTIMIZER"] == "ADAMW":
+		optimizer = optim.AdamW(model.parameters(), lr=model_config["LR"])
 	criterion = nn.NLLLoss()
 
 	EPOCHS = model_config["EPOCHS"]
@@ -145,8 +148,8 @@ if args.mode == "train":
 	torch.save(model.state_dict(), model_path)
 
 elif args.mode == "test":
-	assert model_path is not None, "Model path not set up"
-	model.load_state_dict(torch.load(model_path))
+	assert args.params is not None, "Model params path not set up"
+	model.load_state_dict(torch.load(args.params))
 	model.eval()
 
 	correct = 0
