@@ -75,6 +75,7 @@ dataloader = DataLoader(dataset, batch_size=dataset_config["BATCH_SIZE"], shuffl
            persistent_workers=True, collate_fn=data.dataset_collate_fn)
 
 model_config["TOKENS"] = dataset.tokens()
+model_config["SRC_LEN"] = dataset.SRC_LEN
 model_config["TGT_LEN"] = dataset.TGT_LEN
 
 model = frt.FRT(model_config)
@@ -90,7 +91,7 @@ if args.mode == "train":
 		optimizer = optim.Adam(model.parameters(), lr=model_config["LR"])
 	elif model_config["OPTIMIZER"] == "ADAMW":
 		optimizer = optim.AdamW(model.parameters(), lr=model_config["LR"])
-	criterion = nn.NLLLoss()
+	criterion = nn.NLLLoss(ignore_index=dataset.dictionary.word2idx[dataset.PADDING])
 
 	EPOCHS = model_config["EPOCHS"]
 
@@ -108,9 +109,9 @@ if args.mode == "train":
 				for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader):
 
 					src_indicies = src_indicies.to(device)
-					#src_padding_mask = src_padding_mask.to(device)
+					src_padding_mask = src_padding_mask.to(device)
 					tgt_indicies = tgt_indicies.to(device)
-					#tgt_padding_mask = tgt_padding_mask.to(device)
+					tgt_padding_mask = tgt_padding_mask.to(device)
 					#src_indicies = src_indicies.transpose(0, 1)
 					#tgt_indicies = tgt_indicies.transpose(0, 1)
 
@@ -119,7 +120,7 @@ if args.mode == "train":
 					update_start_time = time.time()
 
 					optimizer.zero_grad()
-					output, tgt = model(src_indicies, tgt_indicies)
+					output, tgt = model(src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask)
 					loss = criterion(output, tgt.view(-1))
 					loss.backward()
 					optimizer.step()
@@ -158,6 +159,9 @@ elif args.mode == "test":
 	with open(prediction_path, "w") as f:
 		with tqdm(total=len(dataset)) as prog:
 			for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in dataloader:
+				src_indicies = src_indicies.to(device)
+				tgt_indicies = tgt_indicies.to(device)
+				src_padding_mask = src_padding_mask.to(device)
 				output = model.predict(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START])
 
 				question_strings = [ q_str.split(dataset.PADDING)[0] for q_str in dataset.tensor2text(src_indicies)]
@@ -173,5 +177,5 @@ elif args.mode == "test":
 					print("Got: '{}' {}\n".format(pred, "correct" if actual == pred else "wrong"), file=f)
 					correct += (actual == pred)
 					total += 1
-				prog.update(1)
+				prog.update(dataloader.batch_size)
 		print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100), file=f)

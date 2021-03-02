@@ -1,5 +1,5 @@
 {
-	"NAME": "FRT_1.0",
+	"NAME": "FRT_1.0_pos-encoder-mask",
 	"FEATURES" : 32,
 	"HEADS" : 8,
 	"ENC_LAYERS" : 6,

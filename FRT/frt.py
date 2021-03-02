@@ -1,5 +1,6 @@
 import math
 import random
+from model import PositionalEncoding
 
 import torch
 import torch.nn as nn
@@ -18,6 +19,7 @@ class FRT(nn.Module):
 		assert self.ENC_LAYERS is not None
 		assert self.DEC_LAYERS is not None
 		assert self.FEED_FORWARD is not None
+		assert self.SRC_LEN is not None
 		assert self.TGT_LEN is not None
 
 		self.embed = nn.Embedding(self.TOKENS, self.FEATURES)
@@ -31,6 +33,8 @@ class FRT(nn.Module):
 		# dropout: float = 0.1,
 		# activation: str = 'relu'
 		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, dim_feedforward=self.FEED_FORWARD)
+		self.src_pos_encoder = PositionalEncoding(self.FEATURES, max_len=self.SRC_LEN)
+		self.tgt_pos_encoder = PositionalEncoding(self.FEATURES, max_len=int(self.TGT_LEN * 1.5))
 		self.lin_out = nn.Linear(self.FEATURES, self.TOKENS)		# should bias be disabled?
 		self.log_softmax = nn.LogSoftmax()
 		self.apply(self._init_weights)
@@ -46,58 +50,61 @@ class FRT(nn.Module):
 	    return mask
 
 
-	def forward(self, src_indicies, tgt_indicies):
-		src = self.embed(src_indicies)
-		tgt = self.embed(tgt_indicies)
+	def forward(self, src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask):
+                src = self.embed(src_indicies)
+                src = self.src_pos_encoder(src)
+                tgt = self.embed(tgt_indicies)
+                tgt = self.tgt_pos_encoder(tgt)
+                tgt_mask = self.transformer.generate_square_subsequent_mask(self.TGT_LEN).to(self.device)
 
-		tgt_mask = self.transformer.generate_square_subsequent_mask(self.TGT_LEN).to(self.device)
-
-		output = self.transformer(src, tgt,
-								  tgt_mask=tgt_mask)
-								  #src_key_padding_mask=src_padding_mask)
-		#tgt_key_padding_mask=tgt_padding_mask
-		output = output[:-1,:, :].view(-1, self.FEATURES)
-		output = self.lin_out(output)
-		output = self.log_softmax(output)
-		#print(output.shape)
-		#print(tgt_indicies.shape)
-		return output, tgt_indicies[1:, :]
+                output = self.transformer(src, tgt,
+                                                                  tgt_mask=tgt_mask,
+                                                                  src_key_padding_mask=src_padding_mask,
+                                                                  tgt_key_padding_mask=tgt_padding_mask)
+                output = output[:-1,:, :].view(-1, self.FEATURES)
+                output = self.lin_out(output)
+                output = self.log_softmax(output)
+                #print(output.shape)
+                #print(tgt_indicies.shape)
+                return output, tgt_indicies[1:, :]
 
 
 	def predict(self, src_indicies, src_padding_mask, start_token_index):
 		src = self.embed(src_indicies)
+		src = self.src_pos_encoder(src)
 		memory = self.transformer.encoder(src, src_key_padding_mask=src_padding_mask)
 
-		tgt_indicies = torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long)		# (1, N)
+		tgt_indicies = torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long, device=self.device)		# (1, N)
 		#print(tgt_indicies.shape)
 		#tgt = torch.full((1, src_indicies.shape[1], self.FEATURES), start_token_index)	# (1, N, E)
 
 		# tgt_key_padding_mask=???
 		steps = round(1.5 * self.TGT_LEN)
 		for k in range(steps):
-			tgt = self.embed(tgt_indicies)		# (1, N, E)
-			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1)
-			#print(tgt_mask)
-			output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask)
-			# output -> (T, N, E)
-			#print(output.shape)
-			output = output[-1, :, :]	# (1, N, E)
-			#print(output.shape)
+                        tgt = self.embed(tgt_indicies)		# (1, N, E)
+                        tgt = self.tgt_pos_encoder(tgt)
+                        tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
+                        #print(tgt_mask)
+                        output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask)
+                        # output -> (T, N, E)
+                        #print(output.shape)
+                        output = output[-1, :, :]	# (1, N, E)
+                        #print(output.shape)
 
-			output = self.lin_out(output)
-			#print(output.shape)
-			output = self.log_softmax(output)
-			#print(output)
-			#print(output.shape)
-			output = torch.argmax(output, 1)
-			#print(output.shape)
+                        output = self.lin_out(output)
+                        #print(output.shape)
+                        output = self.log_softmax(output)
+                        #print(output)
+                        #print(output.shape)
+                        output = torch.argmax(output, 1)
+                        #print(output.shape)
 
-			#tgt_indicies[-1, :] = output
-			tgt_indicies = torch.cat((tgt_indicies, output.view(1, -1)))
-			#print(tgt_indicies)
-			#print(tgt_indicies.shape)
-			#assert 0
+                        #tgt_indicies[-1, :] = output
+                        tgt_indicies = torch.cat((tgt_indicies, output.view(1, -1)))
+                        #print(tgt_indicies)
+                        #print(tgt_indicies.shape)
+                        #assert 0
 
-			#assert k < 3
+                        #assert k < 3
 
 		return tgt_indicies
