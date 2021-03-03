@@ -75,11 +75,23 @@ class Dataset(Dataset):
     def tokens(self):
         return len(self.dictionary.idx2word)
 
-    def buildDataset(self, path):
-        assert os.path.exists(path)
-        self.sources.append((path, self.__len__()))
-        with open(path, 'r', encoding="utf8") as f:
-            for line in f:
+    def buildDataset(self, path_or_array):
+        if isinstance(path_or_array, str):
+            assert os.path.exists(path_or_array)
+            self.sources.append((path_or_array, self.__len__()))
+            with open(path_or_array, 'r', encoding="utf8") as f:
+                for line in f:
+                    l = line.strip().split('\t')
+                    # print(f'l = {l}')
+                    q, a, = self.tokenizeQuestion(l[0]), self.tokenizeAnswer(l[1], l[2])
+                    self.questions.append(q)
+                    self.answers.append(a)
+                    #self.types.append(l[3])        # unneeded right now
+
+                    self.populateDictionary(q)
+                    self.populateDictionary(a)
+        else:
+            for line in path_or_array:
                 l = line.strip().split('\t')
                 # print(f'l = {l}')
                 q, a, = self.tokenizeQuestion(l[0]), self.tokenizeAnswer(l[1], l[2])
@@ -88,7 +100,7 @@ class Dataset(Dataset):
                 #self.types.append(l[3])        # unneeded right now
 
                 self.populateDictionary(q)
-                self.populateDictionary(a)
+                self.populateDictionary(a)   
 
     def __len__(self):
         return len(self.questions)

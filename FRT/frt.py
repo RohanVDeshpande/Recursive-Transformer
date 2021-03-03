@@ -95,25 +95,26 @@ class FRT(nn.Module):
 
 
 	def forward(self, src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask):
-                src = self.embed(src_indicies)
-                src = self.src_pos_encoder(src)
-                tgt = self.embed(tgt_indicies)
-                tgt = self.tgt_pos_encoder(tgt)
-                tgt_mask = self.transformer.generate_square_subsequent_mask(self.TGT_LEN).to(self.device)
+		src = self.embed(src_indicies)
+		src = self.src_pos_encoder(src)
+		tgt = self.embed(tgt_indicies)
+		tgt = self.tgt_pos_encoder(tgt)
+		tgt_mask = self.transformer.generate_square_subsequent_mask(self.TGT_LEN).to(self.device)
 
-                output = self.transformer(src, tgt,
-                                                                  tgt_mask=tgt_mask,
-                                                                  src_key_padding_mask=src_padding_mask,
-                                                                  tgt_key_padding_mask=tgt_padding_mask)
-                output = output[:-1,:, :].view(-1, self.FEATURES)
-                output = self.lin_out(output)
-                output = self.log_softmax(output)
-                #print(output.shape)
-                #print(tgt_indicies.shape)
-                return output, tgt_indicies[1:, :]
+		output = self.transformer(src, tgt,
+		                          tgt_mask=tgt_mask,
+		                          src_key_padding_mask=src_padding_mask,
+		                          tgt_key_padding_mask=tgt_padding_mask)
+		output = output[:-1,:, :].view(-1, self.FEATURES)
+		output = self.lin_out(output)
+		output = self.log_softmax(output)
+		#print(output.shape)
+		#print(tgt_indicies.shape)
+		return output, tgt_indicies[1:, :]
 
 
 	def predict(self, src_indicies, src_padding_mask, start_token_index):
+		print(src_indicies)
 		src = self.embed(src_indicies)
 		src = self.src_pos_encoder(src)
 		memory = self.transformer.encoder(src, src_key_padding_mask=src_padding_mask)
@@ -125,30 +126,30 @@ class FRT(nn.Module):
 		# tgt_key_padding_mask=???
 		steps = round(1.5 * self.TGT_LEN)
 		for k in range(steps):
-                        tgt = self.embed(tgt_indicies)		# (1, N, E)
-                        tgt = self.tgt_pos_encoder(tgt)
-                        tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
-                        #print(tgt_mask)
-                        output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask)
-                        # output -> (T, N, E)
-                        #print(output.shape)
-                        output = output[-1, :, :]	# (1, N, E)
-                        #print(output.shape)
+			tgt = self.embed(tgt_indicies)		# (1, N, E)
+			tgt = self.tgt_pos_encoder(tgt)
+			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
+			#print(tgt_mask)
+			output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask)
+			# output -> (T, N, E)
+			#print(output.shape)
+			output = output[-1, :, :]	# (1, N, E)
+			#print(output.shape)
 
-                        output = self.lin_out(output)
-                        #print(output.shape)
-                        output = self.log_softmax(output)
-                        #print(output)
-                        #print(output.shape)
-                        output = torch.argmax(output, 1)
-                        #print(output.shape)
+			output = self.lin_out(output)
+			#print(output.shape)
+			output = self.log_softmax(output)
+			#print(output)
+			#print(output.shape)
+			output = torch.argmax(output, 1)
+			#print(output.shape)
 
-                        #tgt_indicies[-1, :] = output
-                        tgt_indicies = torch.cat((tgt_indicies, output.view(1, -1)))
-                        #print(tgt_indicies)
-                        #print(tgt_indicies.shape)
-                        #assert 0
+			#tgt_indicies[-1, :] = output
+			tgt_indicies = torch.cat((tgt_indicies, output.view(1, -1)))
+			print(tgt_indicies)
+			#print(tgt_indicies.shape)
+			#assert 0
 
-                        #assert k < 3
+			assert k == 0
 
 		return tgt_indicies
