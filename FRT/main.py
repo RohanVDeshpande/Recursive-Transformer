@@ -39,6 +39,7 @@ args = parser.parse_args()
 
 assert os.path.isdir("output/"), "You need a folder called 'output' in order to save model data / test predictions"
 assert os.path.isdir("tb/"), "You need a folder called 'tb' for tensorboard"
+assert os.path.isdir("output/dict/"), "You need a folder called 'dict' in order to save/load a dictionary"
 
 # Set the random seed manually for reproducibility.
 # torch.manual_seed(args.seed)
@@ -55,6 +56,7 @@ with open(args.model_config) as f:
   model_config = json.load(f)
   timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
   model_path = "output/{}_{}.pt".format(model_config["NAME"], timestamp)
+  dictionary_path = "output/dict/{}_{}_dict.txt".format(model_config["NAME"], timestamp)
   prediction_path = "output/{}_{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0], timestamp)
   tb_log_path = "tb/{}_{}".format(model_config["NAME"], timestamp)
 
@@ -67,6 +69,9 @@ with open(args.model_config) as f:
   	dataset_config = json.load(f)
 
 dataset = data.Dataset(dataset_config)
+if args.mode == "test":
+	print("Loading dictionary from: {}".format(dictionary_path))
+	dataset.loadDictionary(dictionary_path)
 dataset.buildDataset(args.data)
 dataset.device = device
 
@@ -147,6 +152,7 @@ if args.mode == "train":
 		
 	print('Saving model to {}'.format(model_path))
 	torch.save(model.state_dict(), model_path)
+	dataset.saveDictionary(dictionary_path)
 
 elif args.mode == "test":
 	assert args.params is not None, "Model params path not set up"

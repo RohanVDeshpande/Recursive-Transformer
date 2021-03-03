@@ -4,6 +4,7 @@ import torch
 import math
 import copy
 from torch.utils.data import Dataset, DataLoader
+import json
 
 class Dictionary(object):
     def __init__(self):
@@ -74,6 +75,19 @@ class Dataset(Dataset):
 
     def tokens(self):
         return len(self.dictionary.idx2word)
+
+    def loadDictionary(self, dict_path):
+        with open(dict_path, "f") as f:
+            json_dict = json.load(f)
+            self.dictionary.idx2word = [-1] * len(json_dict)
+            for key in json_dict:
+                self.dictionary.idx2word[json_dict[key]] = key
+                self.dictionary.word2idx[key] = json_dict[key]
+        self.dictionary.freeze_dict = True
+
+    def saveDictionary(self, dict_path):
+        with open(dict_path, "w") as f:
+            json.dump(self.dictionary.word2idx, f) 
 
     def buildDataset(self, path_or_array):
         if isinstance(path_or_array, str):
