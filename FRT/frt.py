@@ -114,7 +114,7 @@ class FRT(nn.Module):
 
 
 	def predict(self, src_indicies, src_padding_mask, start_token_index):
-		print(src_indicies)
+		#print(src_indicies)
 		src = self.embed(src_indicies)
 		src = self.src_pos_encoder(src)
 		memory = self.transformer.encoder(src, src_key_padding_mask=src_padding_mask)
@@ -146,10 +146,10 @@ class FRT(nn.Module):
 
 			#tgt_indicies[-1, :] = output
 			tgt_indicies = torch.cat((tgt_indicies, output.view(1, -1)))
-			print(tgt_indicies)
+			#print(tgt_indicies)
 			#print(tgt_indicies.shape)
 			#assert 0
 
-			assert k == 0
+			#assert k == 0
 
 		return tgt_indicies

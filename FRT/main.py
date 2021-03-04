@@ -56,7 +56,7 @@ with open(args.model_config) as f:
   model_config = json.load(f)
   timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
   model_path = "output/{}_{}.pt".format(model_config["NAME"], timestamp)
-  dictionary_path = "output/dict/{}_{}_dict.txt".format(model_config["NAME"], timestamp)
+  dictionary_path = "output/dict/{}_{}_dict.json".format(model_config["NAME"], timestamp) if args.mode == "train" else "output/dict/" + os.path.splitext(os.path.basename(args.params))[0] + "_dict.json"
   prediction_path = "output/{}_{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0], timestamp)
   tb_log_path = "tb/{}_{}".format(model_config["NAME"], timestamp)
 

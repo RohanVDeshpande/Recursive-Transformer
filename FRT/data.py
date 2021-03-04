@@ -77,7 +77,7 @@ class Dataset(Dataset):
         return len(self.dictionary.idx2word)
 
     def loadDictionary(self, dict_path):
-        with open(dict_path, "f") as f:
+        with open(dict_path, "r") as f:
             json_dict = json.load(f)
             self.dictionary.idx2word = [-1] * len(json_dict)
             for key in json_dict:
