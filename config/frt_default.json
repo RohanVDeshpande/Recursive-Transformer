@@ -1,12 +1,12 @@
 {
-	"NAME": "FRT_1.0",
+	"NAME": "FRT_1.0_pos-encoder-mask",
 	"FEATURES" : 32,
 	"HEADS" : 8,
 	"ENC_LAYERS" : 6,
 	"DEC_LAYERS" : 6,
 	"FEED_FORWARD" : 64,
-	"OPTIMIZER": "ADAM",
+	"OPTIMIZER": "ADAMW",
 	"LR": 0.0001,
-	"EPOCHS": 2,
+	"EPOCHS": 1000,
 	"DATASET_CONFIG": "config/dataset_small_config.json"
 }

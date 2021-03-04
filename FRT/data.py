@@ -3,6 +3,8 @@ from io import open
 import torch
 import math
 import copy
+from torch.utils.data import Dataset, DataLoader
+import json
 
 class Dictionary(object):
     def __init__(self):
@@ -22,7 +24,7 @@ class Dictionary(object):
         return len(self.idx2word)
 
 
-class Dataset(object):
+class Dataset(Dataset):
     def __init__(self, config):
         self.questions = []
         self.answers = []
@@ -74,29 +76,52 @@ class Dataset(object):
     def tokens(self):
         return len(self.dictionary.idx2word)
 
-    def buildDataset(self, path):
-        assert os.path.exists(path)
-        self.sources.append((path, self.len()))
-        with open(path, 'r', encoding="utf8") as f:
-            for line in f:
+    def loadDictionary(self, dict_path):
+        with open(dict_path, "r") as f:
+            json_dict = json.load(f)
+            self.dictionary.idx2word = [-1] * len(json_dict)
+            for key in json_dict:
+                self.dictionary.idx2word[json_dict[key]] = key
+                self.dictionary.word2idx[key] = json_dict[key]
+        self.dictionary.freeze_dict = True
+
+    def saveDictionary(self, dict_path):
+        with open(dict_path, "w") as f:
+            json.dump(self.dictionary.word2idx, f) 
+
+    def buildDataset(self, path_or_array):
+        if isinstance(path_or_array, str):
+            assert os.path.exists(path_or_array)
+            self.sources.append((path_or_array, self.__len__()))
+            with open(path_or_array, 'r', encoding="utf8") as f:
+                for line in f:
+                    l = line.strip().split('\t')
+                    # print(f'l = {l}')
+                    q, a, = self.tokenizeQuestion(l[0]), self.tokenizeAnswer(l[1], l[2])
+                    self.questions.append(q)
+                    self.answers.append(a)
+                    #self.types.append(l[3])        # unneeded right now
+
+                    self.populateDictionary(q)
+                    self.populateDictionary(a)
+        else:
+            for line in path_or_array:
                 l = line.strip().split('\t')
                 # print(f'l = {l}')
                 q, a, = self.tokenizeQuestion(l[0]), self.tokenizeAnswer(l[1], l[2])
                 self.questions.append(q)
                 self.answers.append(a)
-                self.types.append(l[3])
+                #self.types.append(l[3])        # unneeded right now
 
                 self.populateDictionary(q)
-                self.populateDictionary(a)
+                self.populateDictionary(a)   
 
-    def len(self):
+    def __len__(self):
         return len(self.questions)
 
-    def batches(self):
-        return math.ceil(self.len() / self.BATCH_SIZE)
 
     def text2tensor(self, text):
-        return torch.tensor([ self.dictionary.word2idx[c] for c in text], dtype=torch.long, device=self.device)
+        return torch.tensor([ self.dictionary.word2idx[c] for c in text], dtype=torch.long)
 
 
     # t -> (T, N)
@@ -109,20 +134,32 @@ class Dataset(object):
         else:
             assert 0        # not implemented yet
 
-    def get_data(self, batch_num):
+    def __getitem__(self, idx):
 
-        src_indicies = torch.cat([self.text2tensor(srctext).view(-1, 1) \
-                                for srctext in self.questions[self.BATCH_SIZE * batch_num : self.BATCH_SIZE * (batch_num + 1)]], dim=1)
+        src_indicies = self.text2tensor(self.questions[idx]).view(-1, 1)
+        #print(src_indicies.shape)
 
-        src_padding_mask = torch.eq(src_indicies, self.dictionary.word2idx[self.PADDING])
+        src_padding_mask = torch.eq(src_indicies, self.dictionary.word2idx[self.PADDING]).view(1, -1)
         # src_padding_mask = src_padding_mask.masked_fill(src_padding_mask == 1, float('-inf')).masked_fill(src_padding_mask == 0, float(0.0))
-        src_padding_mask = torch.transpose(src_padding_mask, 0, 1)
+        #src_padding_mask = torch.transpose(src_padding_mask, 0, 1)
 
-        tgt_indicies = torch.cat([self.text2tensor(tgttext).view(-1, 1) \
-                                for tgttext in self.answers[self.BATCH_SIZE * batch_num : self.BATCH_SIZE * (batch_num + 1)]], dim=1)
+        tgt_indicies = self.text2tensor(self.answers[idx]).view(-1, 1)
 
-        tgt_padding_mask = torch.eq(tgt_indicies, self.dictionary.word2idx[self.PADDING])
+        tgt_padding_mask = torch.eq(tgt_indicies, self.dictionary.word2idx[self.PADDING]).view(1, -1)
         # tgt_padding_mask = tgt_padding_mask.masked_fill(tgt_padding_mask == 1, float('-inf')).masked_fill(tgt_padding_mask == 0, float(0.0))
-        tgt_padding_mask = torch.transpose(tgt_padding_mask, 0, 1)
+        #tgt_padding_mask = torch.transpose(tgt_padding_mask, 0, 1)
 
         return src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask
+
+
+
+def dataset_collate_fn(batch):
+    src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask = zip(*batch)
+    
+    src_indicies = torch.cat(src_indicies, dim=1)
+    src_padding_mask = torch.cat(src_padding_mask)
+
+    tgt_indicies = torch.cat(tgt_indicies, dim=1)
+    tgt_padding_mask = torch.cat(tgt_padding_mask)
+
+    return src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask
