@@ -60,7 +60,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 with open(args.model_config) as f:
   model_config = json.load(f)
   checkpoint_dir = "checkpoints/{}".format(model_config["NAME"])
-  dictionary_path = "output/dict/{}_dict.json".format(model_config["NAME"]) if args.mode == "train" else "output/dict/" + os.path.splitext(os.path.basename(args.params))[0] + "_dict.json"
+  dictionary_path = "output/dict/{}_dict.json".format(model_config["NAME"])
   prediction_path = "output/{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0])
   tb_log_path = "tb/{}".format(model_config["NAME"])
 
