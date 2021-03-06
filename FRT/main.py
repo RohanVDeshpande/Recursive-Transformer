@@ -155,25 +155,28 @@ if args.mode == "train":
 				epoch_train_loss /= len(dataloader)
 
 				# calculate and log validation loss
-				epoch_val_loss = 0
-				for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in val_dataloader:
-					src_indicies = src_indicies.to(device)
-					src_padding_mask = src_padding_mask.to(device)
-					tgt_indicies = tgt_indicies.to(device)
-					tgt_padding_mask = tgt_padding_mask.to(device)
+				model.eval()
+				with torch.no_grad():
+					epoch_val_loss = 0
+					for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in val_dataloader:
+						src_indicies = src_indicies.to(device)
+						src_padding_mask = src_padding_mask.to(device)
+						tgt_indicies = tgt_indicies.to(device)
+						tgt_padding_mask = tgt_padding_mask.to(device)
 
-					output, tgt = model(src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask)
-					loss = criterion(output, tgt.view(-1))
-					epoch_val_loss += loss.item()
-				
-				epoch_val_loss /= len(val_dataloader)
-				val_loss_writer.add_scalar("Loss/validation", epoch_val_loss, epoch)
+						output, tgt = model(src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask)
+						loss = criterion(output, tgt.view(-1))
+						epoch_val_loss += loss.item()
+					
+					epoch_val_loss /= len(val_dataloader)
+					val_loss_writer.add_scalar("Loss/validation", epoch_val_loss, epoch)
 
-				print("Epoch {}, training loss: {}, validation loss: {}".format(epoch, epoch_train_loss, epoch_val_loss))
+					print("Epoch {}, training loss: {}, validation loss: {}".format(epoch, epoch_train_loss, epoch_val_loss))
 
-			
+				model.train()
 				checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}.pt'.format(model_config["NAME"], epoch))
 				torch.save(model.state_dict(), checkpoint_path)
+
 	except:
 		print('-' * 89)
 		print('Exiting from training early')
