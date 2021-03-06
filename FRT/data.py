@@ -31,6 +31,7 @@ class Dataset(Dataset):
         self.types = []
         self.sources = []
         self.device = "cpu"     # default device
+        self.TOTAL_TOKENS = None    # manually set number of tokens
 
         if isinstance(config, dict):
             self.dictionary = Dictionary()
@@ -46,7 +47,10 @@ class Dataset(Dataset):
             self.PADDING = config.PADDING
             self.END = config.END
             self.TGT_LOOP_SEP = config.TGT_LOOP_SEP
+            self.LOOP_CONTINUE = config.LOOP_CONTINUE
+            self.LOOP_STOP = config.LOOP_STOP
             self.BATCH_SIZE = config.BATCH_SIZE
+            self.TOTAL_TOKENS = config.TOTAL_TOKENS
 
         assert self.START is not None
         assert self.SRC_LEN is not None
@@ -54,6 +58,8 @@ class Dataset(Dataset):
         assert self.PADDING is not None
         assert self.END is not None
         assert self.TGT_LOOP_SEP is not None
+        assert self.LOOP_CONTINUE is not None
+        assert self.LOOP_STOP is not None
         assert self.BATCH_SIZE is not None
 
     def tokenizeQuestion(self, q):
@@ -64,7 +70,14 @@ class Dataset(Dataset):
 
     def tokenizeAnswer(self, a, done):
         a = self.START + a
-        a += self.TGT_LOOP_SEP + done + self.END
+        a += self.TGT_LOOP_SEP
+        if done == "1":
+            a += self.LOOP_STOP
+        elif done == "0":
+            a += self.LOOP_CONTINUE
+        else:
+            assert 0, "Dataset object encountered undefined variable: done={}".format(done)
+        a += self.END
         assert self.TGT_LEN - len(a) >= 0, "A length is {} but TGT_LEN={}".format(len(a), self.TGT_LEN)
         a += (self.TGT_LEN - len(a)) * self.PADDING
         return a
@@ -74,7 +87,11 @@ class Dataset(Dataset):
             self.dictionary.add_word(c)
 
     def tokens(self):
-        return len(self.dictionary.idx2word)
+        if self.TOTAL_TOKENS is not None:
+            assert self.TOTAL_TOKENS >= len(self.dictionary.idx2word), "Manually defined token count should be at least same as dictionary token count"
+            return self.TOTAL_TOKENS
+        else:
+            return len(self.dictionary.idx2word)
 
     def loadDictionary(self, dict_path):
         with open(dict_path, "r") as f:

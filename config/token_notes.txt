@@ -1,0 +1,20 @@
+Total number of tokens: at least 27
+
+Digits 0-9
+
+Decimal: '.'
+Addition: '+'
+Subtraction: '-'
+Multiplication: '*'
+Division: '/'
+Parentheses: '(' ')'
+Brackets: '[' ']'
+Space: ' '
+Comma: ','
+
+Start: "\u0936"                                     श
+Separator between target & loop: "\u0933"           ळ
+Loop stop: "\u3163"                                 ㅣ
+Loop continue: "\u3147"                             ㅇ
+End: "\u0915"                                       क
+Padding: "\u0939"                                   ह

@@ -77,8 +77,8 @@ class FRT(nn.Module):
 		# dropout: float = 0.1,
 		# activation: str = 'relu'
 		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, dim_feedforward=self.FEED_FORWARD)
-		self.src_pos_encoder = PositionalEncoding(self.FEATURES, max_len=self.SRC_LEN)
-		self.tgt_pos_encoder = PositionalEncoding(self.FEATURES, max_len=int(self.TGT_LEN * 1.5))
+		self.src_pos_encoder = PositionalEncoding(self.FEATURES)
+		self.tgt_pos_encoder = PositionalEncoding(self.FEATURES)
 		self.lin_out = nn.Linear(self.FEATURES, self.TOKENS)		# should bias be disabled?
 		self.log_softmax = nn.LogSoftmax()
 		self.apply(self._init_weights)

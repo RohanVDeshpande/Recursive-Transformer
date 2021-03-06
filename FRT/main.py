@@ -28,7 +28,8 @@ parser.add_argument('--mode', type=str, default=None, required=True,
                     help="Choose train mode vs. test mode",
 					choices=["train", "test"])
 parser.add_argument('--data', type=str, required=True,
-                    help='Dataset path')
+                    help='Dataset path (for training or testing)')
+parser.add_argument('--validation', type=str, help='Validation set path')
 parser.add_argument('--model-config', type=str, required=True,
                     help='Model json config')
 parser.add_argument('--cuda', action='store_true',
@@ -37,9 +38,13 @@ parser.add_argument('--params', type=str, help='Model params path for test')
 
 args = parser.parse_args()
 
-assert os.path.isdir("output/"), "You need a folder called 'output' in order to save model data / test predictions"
+assert os.path.isdir("output/"), "You need a folder called 'output' in order to save test predictions"
 assert os.path.isdir("tb/"), "You need a folder called 'tb' for tensorboard"
 assert os.path.isdir("output/dict/"), "You need a folder called 'dict' in order to save/load a dictionary"
+assert os.path.isdir("checkpoints/"), "You need a folder called 'checkpoints' in order to save model params"
+
+if args.mode == 'train':
+	assert args.validation, "You need to provide a validation set for training"
 
 # Set the random seed manually for reproducibility.
 # torch.manual_seed(args.seed)
@@ -54,14 +59,13 @@ device = torch.device("cuda" if args.cuda else "cpu")
 
 with open(args.model_config) as f:
   model_config = json.load(f)
-  timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-  model_path = "output/{}_{}.pt".format(model_config["NAME"], timestamp)
-  dictionary_path = "output/dict/{}_{}_dict.json".format(model_config["NAME"], timestamp) if args.mode == "train" else "output/dict/" + os.path.splitext(os.path.basename(args.params))[0] + "_dict.json"
-  prediction_path = "output/{}_{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0], timestamp)
-  tb_log_path = "tb/{}_{}".format(model_config["NAME"], timestamp)
+  checkpoint_dir = "checkpoints/{}".format(model_config["NAME"])
+  dictionary_path = "output/dict/{}_dict.json".format(model_config["NAME"]) if args.mode == "train" else "output/dict/" + os.path.splitext(os.path.basename(args.params))[0] + "_dict.json"
+  prediction_path = "output/{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0])
+  tb_log_path = "tb/{}".format(model_config["NAME"])
 
-  if args.mode == "train" and os.path.exists(model_path):
-    utils.confirm("Re-training the model will overwrite the following file: {}".format(model_path))
+  if args.mode == "train" and os.path.exists(checkpoint_dir):
+    utils.confirm("Re-training the model will overwrite the checkpoints in {}".format(checkpoint_dir))
   elif args.mode == "test" and os.path.exists(prediction_path):
    utils.confirm("Re-testing will cause the prediction output file to be overwritten: {}".format(prediction_path))
 
@@ -88,9 +92,19 @@ model.device = device
 model.to(device)
 
 if args.mode == "train":
-	assert model_path is not None, "Model path not set up"
+	assert checkpoint_dir is not None, "Model path not set up"
+	if not os.path.exists(checkpoint_dir):
+		os.mkdir(checkpoint_dir)
 
-	writer = SummaryWriter(tb_log_path, comment=utils.config2comment(model_config, dataset_config))
+	val_dataset = data.Dataset(dataset_config)
+	val_dataset.buildDataset(args.validation)
+	val_dataset.device = device
+	val_dataloader = DataLoader(val_dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],
+           pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
+           persistent_workers=True, collate_fn=data.dataset_collate_fn)
+
+	train_loss_writer = SummaryWriter(tb_log_path, filename_suffix='trainLoss', comment=utils.config2comment(model_config, dataset_config))
+	val_loss_writer = SummaryWriter(tb_log_path, filename_suffix='valLoss', comment=utils.config2comment(model_config, dataset_config))
 
 	if model_config["OPTIMIZER"] == "ADAM":
 		optimizer = optim.Adam(model.parameters(), lr=model_config["LR"])
@@ -104,7 +118,7 @@ if args.mode == "train":
 	iteration=0
 	try:
 		for epoch in range(EPOCHS):
-			epoch_loss = 0.
+			epoch_train_loss = 0.
 			with tqdm(total=len(dataset)) as prog:
 				batch_time = AverageMeter()
 				data_time = AverageMeter()
@@ -117,8 +131,6 @@ if args.mode == "train":
 					src_padding_mask = src_padding_mask.to(device)
 					tgt_indicies = tgt_indicies.to(device)
 					tgt_padding_mask = tgt_padding_mask.to(device)
-					#src_indicies = src_indicies.transpose(0, 1)
-					#tgt_indicies = tgt_indicies.transpose(0, 1)
 
 					data_time.update(time.time() - batch_start_time) # data loading time
 
@@ -132,26 +144,43 @@ if args.mode == "train":
 
 					update_time.update(time.time() - update_start_time)
 
-					epoch_loss += loss.item()
+					epoch_train_loss += loss.item()
 					prog.update(dataloader.batch_size)
 					
 					batch_time.update(time.time() - batch_start_time)
 					batch_start_time = time.time()
 
-					# if i % 16 == 0:
-					# 	print('avg data load time: {}\n'
-					# 		  'avg update time: {}\n'
-					# 		  'avg total batch time: {}'.format(data_time.avg, update_time.avg, batch_time.avg))
-					writer.add_scalar("Loss/train", loss.item(), iteration)
+					train_loss_writer.add_scalar("Loss/train", loss.item(), iteration)
 					iteration += 1
-				epoch_loss /= len(dataset)
-				print("Epoch {}, Loss: {}".format(epoch, epoch_loss))
+				epoch_train_loss /= len(dataloader)
+
+				# calculate and log validation loss
+				epoch_val_loss = 0
+				for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in val_dataloader:
+					src_indicies = src_indicies.to(device)
+					src_padding_mask = src_padding_mask.to(device)
+					tgt_indicies = tgt_indicies.to(device)
+					tgt_padding_mask = tgt_padding_mask.to(device)
+
+					output, tgt = model(src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask)
+					loss = criterion(output, tgt.view(-1))
+					epoch_val_loss += loss.item()
+				
+				epoch_val_loss /= len(val_dataloader)
+				val_loss_writer.add_scalar("Loss/validation", epoch_val_loss, epoch)
+
+				print("Epoch {}, training loss: {}, validation loss: {}".format(epoch, epoch_train_loss, epoch_val_loss))
+
+			
+				checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}.pt'.format(model_config["NAME"], epoch))
+				torch.save(model.state_dict(), checkpoint_path)
 	except:
 		print('-' * 89)
 		print('Exiting from training early')
-		
-	print('Saving model to {}'.format(model_path))
-	torch.save(model.state_dict(), model_path)
+		checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
+		torch.save(model.state_dict(), checkpoint_path)
+	# print('Saving model to {}'.format(model_path))
+	# torch.save(model.state_dict(), model_path)
 	dataset.saveDictionary(dictionary_path)
 
 elif args.mode == "test":
