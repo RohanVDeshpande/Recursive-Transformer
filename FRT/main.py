@@ -103,8 +103,7 @@ if args.mode == "train":
            pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
            persistent_workers=True, collate_fn=data.dataset_collate_fn)
 
-	train_loss_writer = SummaryWriter(tb_log_path, filename_suffix='trainLoss', comment=utils.config2comment(model_config, dataset_config))
-	val_loss_writer = SummaryWriter(tb_log_path, filename_suffix='valLoss', comment=utils.config2comment(model_config, dataset_config))
+	tb_writer = SummaryWriter(tb_log_path, comment=utils.config2comment(model_config, dataset_config))
 
 	if model_config["OPTIMIZER"] == "ADAM":
 		optimizer = optim.Adam(model.parameters(), lr=model_config["LR"])
@@ -150,7 +149,7 @@ if args.mode == "train":
 					batch_time.update(time.time() - batch_start_time)
 					batch_start_time = time.time()
 
-					train_loss_writer.add_scalar("Loss/train", loss.item(), iteration)
+					tb_writer.add_scalar("Loss/train", loss.item(), iteration)
 					iteration += 1
 				epoch_train_loss /= len(dataloader)
 
@@ -169,7 +168,7 @@ if args.mode == "train":
 						epoch_val_loss += loss.item()
 					
 					epoch_val_loss /= len(val_dataloader)
-					val_loss_writer.add_scalar("Loss/validation", epoch_val_loss, epoch)
+					tb_writer.add_scalar("Loss/validation", epoch_val_loss, epoch)
 
 					print("Epoch {}, training loss: {}, validation loss: {}".format(epoch, epoch_train_loss, epoch_val_loss))
 
