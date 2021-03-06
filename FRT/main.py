@@ -96,7 +96,8 @@ if args.mode == "train":
 	if not os.path.exists(checkpoint_dir):
 		os.mkdir(checkpoint_dir)
 
-	val_dataset = data.Dataset(dataset_config)
+	val_dataset = data.Dataset(dataset)				# configure validation dataset object from trainging dataset object's config
+													# this allows dictionary to be shared
 	val_dataset.buildDataset(args.validation)
 	val_dataset.device = device
 	val_dataloader = DataLoader(val_dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],

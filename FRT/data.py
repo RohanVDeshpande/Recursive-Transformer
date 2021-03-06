@@ -40,7 +40,7 @@ class Dataset(Dataset):
         else:
             self.dictionary = copy.deepcopy(config.dictionary)
             self.dictionary.freeze_dict = True
-            print(self.dictionary.idx2word)
+            print("Using existing dictionary to initialize new dataset object", self.dictionary.idx2word)
             self.START = config.START
             self.SRC_LEN = config.SRC_LEN
             self.TGT_LEN = config.TGT_LEN
