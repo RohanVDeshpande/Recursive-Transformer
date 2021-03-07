@@ -25,8 +25,8 @@ from torch.utils.data import DataLoader
 
 parser = argparse.ArgumentParser(description='Forced Recursive Transformer')
 parser.add_argument('--mode', type=str, default=None, required=True,
-                    help="Choose train mode vs. test mode",
-					choices=["train", "test"])
+                    help="Choose train mode vs. test mode vs. finetune",
+					choices=["train", "test", "finetune"])
 parser.add_argument('--data', type=str, required=True,
                     help='Dataset path (for training or testing)')
 parser.add_argument('--validation', type=str, help='Validation set path')
@@ -34,7 +34,9 @@ parser.add_argument('--model-config', type=str, required=True,
                     help='Model json config')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
-parser.add_argument('--params', type=str, help='Model params path for test')
+parser.add_argument('--params', type=str, help='Model params path for finetuning or testing')
+parser.add_argument('--dict', type=str, help='Dictionary path for finetuning or testing')
+parser.add_argument('--dry-run', action='store_true', help='enable dry run, one or two batches')
 
 args = parser.parse_args()
 
@@ -44,7 +46,12 @@ assert os.path.isdir("output/dict/"), "You need a folder called 'dict' in order 
 assert os.path.isdir("checkpoints/"), "You need a folder called 'checkpoints' in order to save model params"
 
 if args.mode == 'train':
-	assert args.validation, "You need to provide a validation set for training"
+	assert args.validation, "You need to provide a validation set (--validation) for training"
+if args.mode == 'finetune':
+	assert args.dict, "You need to provide a dictionary path (--dict) for finetuning"
+	assert args.params, "You need to provide a params path (--params) for finetuning"
+if args.mode == 'testing':
+	assert args.params, "You need to provide a params path (--params) for testing"
 
 # Set the random seed manually for reproducibility.
 # torch.manual_seed(args.seed)
@@ -60,7 +67,7 @@ device = torch.device("cuda" if args.cuda else "cpu")
 with open(args.model_config) as f:
   model_config = json.load(f)
   checkpoint_dir = "checkpoints/{}".format(model_config["NAME"])
-  dictionary_path = "output/dict/{}_dict.json".format(model_config["NAME"])
+  dictionary_path = args.dict if args.dict else "output/dict/{}_dict.json".format(model_config["NAME"])
   prediction_path = "output/{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0])
   tb_log_path = "tb/{}".format(model_config["NAME"])
 
@@ -73,7 +80,7 @@ with open(args.model_config) as f:
   	dataset_config = json.load(f)
 
 dataset = data.Dataset(dataset_config)
-if args.mode == "test":
+if args.mode == "test" or args.mode == "finetune":
 	print("Loading dictionary from: {}".format(dictionary_path))
 	dataset.loadDictionary(dictionary_path)
 dataset.buildDataset(args.data)
@@ -91,11 +98,13 @@ model = frt.FRT(model_config)
 model.device = device
 model.to(device)
 
-if args.mode == "train":
+if args.mode == "train" or args.mode == "finetune":
 	assert checkpoint_dir is not None, "Model path not set up"
 	if not os.path.exists(checkpoint_dir):
 		os.mkdir(checkpoint_dir)
 
+	if args.mode == "finetune":
+		model.load_state_dict(torch.load(args.params))
 	val_dataset = data.Dataset(dataset)				# configure validation dataset object from trainging dataset object's config
 													# this allows dictionary to be shared
 	val_dataset.buildDataset(args.validation)
@@ -112,7 +121,7 @@ if args.mode == "train":
 		optimizer = optim.AdamW(model.parameters(), lr=model_config["LR"])
 	criterion = nn.NLLLoss(ignore_index=dataset.dictionary.word2idx[dataset.PADDING])
 
-	EPOCHS = model_config["EPOCHS"]
+	EPOCHS = 1 if args.dry_run else model_config["EPOCHS"]
 
 	model.train()
 	iteration=0
@@ -126,6 +135,8 @@ if args.mode == "train":
 
 				batch_start_time = time.time()
 				for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader):
+					if (args.dry_run and i == 5):
+						break
 
 					src_indicies = src_indicies.to(device)
 					src_padding_mask = src_padding_mask.to(device)
