@@ -36,6 +36,7 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--params', type=str, help='Model params path for finetuning or testing')
 parser.add_argument('--dict', type=str, help='Dictionary path for finetuning or testing')
+parser.add_argument('--dry-run', action='store_true', help='enable dry run, one or two batches')
 
 args = parser.parse_args()
 
@@ -120,7 +121,9 @@ if args.mode == "train" or args.mode == "finetune":
 		optimizer = optim.AdamW(model.parameters(), lr=model_config["LR"])
 	criterion = nn.NLLLoss(ignore_index=dataset.dictionary.word2idx[dataset.PADDING])
 
-	EPOCHS = model_config["EPOCHS"]
+	EPOCHS = 1 if args.dry_run else model_config["EPOCHS"]
+	if args.dry_run:
+		dataloader = dataloader[:5]
 
 	model.train()
 	iteration=0
@@ -133,7 +136,7 @@ if args.mode == "train" or args.mode == "finetune":
 				update_time = AverageMeter()
 
 				batch_start_time = time.time()
-				for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader):
+				for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader[:5]):
 
 					src_indicies = src_indicies.to(device)
 					src_padding_mask = src_padding_mask.to(device)
