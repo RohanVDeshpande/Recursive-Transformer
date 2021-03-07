@@ -127,7 +127,6 @@ if args.mode == "train" or args.mode == "finetune":
 	iteration=0
 	try:
 		for epoch in range(EPOCHS):
-			epoch_train_loss = 0.
 			with tqdm(total=len(dataset)) as prog:
 				batch_time = AverageMeter()
 				data_time = AverageMeter()
@@ -136,6 +135,7 @@ if args.mode == "train" or args.mode == "finetune":
 				batch_start_time = time.time()
 				for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader):
 					if (args.dry_run and i == 5):
+						# 'dry run' only runs 1 epoch with 5 bathes
 						break
 
 					src_indicies = src_indicies.to(device)
@@ -154,37 +154,34 @@ if args.mode == "train" or args.mode == "finetune":
 					optimizer.step()
 
 					update_time.update(time.time() - update_start_time)
-
-					epoch_train_loss += loss.item()
 					prog.update(dataloader.batch_size)
 					
 					batch_time.update(time.time() - batch_start_time)
 					batch_start_time = time.time()
 
 					tb_writer.add_scalar("Loss/train", loss.item(), iteration)
-					iteration += 1
-				epoch_train_loss /= len(dataloader)
+					iteration += dataset.BATCH_SIZE
 
-				# calculate and log validation loss
-				model.eval()
-				with torch.no_grad():
-					epoch_val_loss = 0
-					for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in val_dataloader:
-						src_indicies = src_indicies.to(device)
-						src_padding_mask = src_padding_mask.to(device)
-						tgt_indicies = tgt_indicies.to(device)
-						tgt_padding_mask = tgt_padding_mask.to(device)
+					# calculate and log validation loss every 1/5 of a dataset pass
+					if iteration % (len(dataset)//5) == 0:
+						model.eval()
+						with torch.no_grad():
+							epoch_val_loss = 0
+							for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in val_dataloader:
+								src_indicies = src_indicies.to(device)
+								src_padding_mask = src_padding_mask.to(device)
+								tgt_indicies = tgt_indicies.to(device)
+								tgt_padding_mask = tgt_padding_mask.to(device)
 
-						output, tgt = model(src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask)
-						loss = criterion(output, tgt.view(-1))
-						epoch_val_loss += loss.item()
-					
-					epoch_val_loss /= len(val_dataloader)
-					tb_writer.add_scalar("Loss/validation", epoch_val_loss, epoch)
+								output, tgt = model(src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask)
+								loss = criterion(output, tgt.view(-1))
+								epoch_val_loss += loss.item()
+							
+							epoch_val_loss /= len(val_dataloader)
+							tb_writer.add_scalar("Loss/validation", epoch_val_loss, iteration)
+						model.train()
 
-					print("Epoch {}, training loss: {}, validation loss: {}".format(epoch, epoch_train_loss, epoch_val_loss))
-
-				model.train()
+				# at end of epoch, save checkpoint
 				checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}.pt'.format(model_config["NAME"], epoch))
 				torch.save(model.state_dict(), checkpoint_path)
 
