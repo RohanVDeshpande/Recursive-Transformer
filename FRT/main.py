@@ -122,8 +122,6 @@ if args.mode == "train" or args.mode == "finetune":
 	criterion = nn.NLLLoss(ignore_index=dataset.dictionary.word2idx[dataset.PADDING])
 
 	EPOCHS = 1 if args.dry_run else model_config["EPOCHS"]
-	if args.dry_run:
-		dataloader = dataloader[:5]
 
 	model.train()
 	iteration=0
@@ -136,7 +134,9 @@ if args.mode == "train" or args.mode == "finetune":
 				update_time = AverageMeter()
 
 				batch_start_time = time.time()
-				for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader[:5]):
+				for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader):
+					if (args.dry_run and i == 5):
+						break
 
 					src_indicies = src_indicies.to(device)
 					src_padding_mask = src_padding_mask.to(device)
