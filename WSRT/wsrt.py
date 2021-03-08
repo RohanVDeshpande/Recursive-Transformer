@@ -93,9 +93,9 @@ class WSRT(nn.Module):
 			module.weight.data.normal_(mean=0.0, std=0.02)
 
 	def generate_src_padding(self, src_indicies, end_token_index):
-		return torch.cat([torch.tensor([ 0 if len((src_indicies[:, i] == end_token_index).nonzero(as_tuple=True)[0]) == 0 or \
-											j <= (src_indicies[:, i] == end_token_index).nonzero(as_tuple=True)[0][0] else 1 \
-									for j in range(src_indicies.shape[0])], dtype=torch.long).view(1, -1)
+		return torch.cat([torch.tensor([ False if len((src_indicies[:, i] == end_token_index).nonzero(as_tuple=True)[0]) == 0 or \
+											j <= (src_indicies[:, i] == end_token_index).nonzero(as_tuple=True)[0][0] else True \
+									for j in range(src_indicies.shape[0])], dtype=torch.bool, device=self.device).view(1, -1)
 							for i in range(src_indicies.shape[1])], dim=0)
 
 	def forward(self, src_indicies, tgt_indicies, tgt_padding_mask, numSteps, start_token_index, end_token_index, hidden_length):
