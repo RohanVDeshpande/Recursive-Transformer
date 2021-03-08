@@ -34,6 +34,7 @@ class Dataset(Dataset):
         self.sources = []
         self.device = "cpu"     # default device
         self.TOTAL_TOKENS = None    # manually set number of tokens
+        self.RANDOMIZE_STEPS = False
 
         if isinstance(config, dict):
             self.dictionary = Dictionary()
@@ -152,14 +153,16 @@ class Dataset(Dataset):
         #print(src_indicies.shape)
 
         tgt_indicies = self.text2tensor(self.answers[idx]).view(-1, 1)
+        tgt_padding_mask = torch.eq(tgt_indicies, self.dictionary.word2idx[self.PADDING]).view(1, -1)
 
-        return src_indicies, tgt_indicies, self.steps[idx]
+        return src_indicies, tgt_indicies, tgt_padding_mask, self.steps[idx]
 
 
 
 def dataset_collate_fn(batch):
-    src_indicies, tgt_indicies, steps = zip(*batch)
+    src_indicies, tgt_indicies, tgt_padding_mask, steps = zip(*batch)
     src_indicies = torch.cat(src_indicies, dim=1)
     tgt_indicies = torch.cat(tgt_indicies, dim=1)
+    tgt_padding_mask = torch.cat(tgt_padding_mask)
     steps = max(steps)
-    return src_indicies, tgt_indicies, random.randint(steps, int(steps * 1.5))
+    return src_indicies, tgt_indicies, tgt_padding_mask, steps

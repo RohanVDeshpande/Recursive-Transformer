@@ -133,8 +133,10 @@ if args.mode == "train" or args.mode == "finetune":
 				update_time = AverageMeter()
 
 				batch_start_time = time.time()
-				for i, (src_indicies, tgt_indicies, WSRT_steps) in enumerate(dataloader):
-					print(WSRT_steps)
+				for i, (src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(dataloader):
+					if model.RANDOMIZE_STEPS:
+						WSRT_steps = random.randint(WSRT_steps, int(WSRT_steps * model.RANDOMIZE_STEPS_SCALE_FACTOR))
+					# print(WSRT_steps)
 					# print(src_indicies)
 					# print(src_indicies.shape)
 					# print(tgt_indicies)
@@ -151,11 +153,11 @@ if args.mode == "train" or args.mode == "finetune":
 					update_start_time = time.time()
 
 					optimizer.zero_grad()
-					output = model(src_indicies, WSRT_steps, dataset.dictionary.word2idx[dataset.START], dataset.dictionary.word2idx[dataset.END], tgt_indicies.shape[0])
+					output, tgt = model(src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps, dataset.dictionary.word2idx[dataset.START], dataset.dictionary.word2idx[dataset.END], tgt_indicies.shape[0])
 					# print(output)
 					# print(output.shape)
 					# print(tgt_indicies.view(-1).shape)
-					loss = criterion(output, tgt_indicies.view(-1))
+					loss = criterion(output, tgt.view(-1))
 					loss.backward()
 					optimizer.step()
 
