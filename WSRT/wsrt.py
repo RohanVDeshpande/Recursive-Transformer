@@ -86,7 +86,7 @@ class WSRT(nn.Module):
 		self.lin_out = nn.Linear(self.FEATURES, self.TOKENS)		# should bias be disabled?
 		self.log_softmax = nn.LogSoftmax()
 		self.apply(self._init_weights)
-		print("FRT model has {} parameters".format(sum(p.numel() for p in self.parameters())))
+		print("WSRT model has {} parameters".format(sum(p.numel() for p in self.parameters())))
 
 	def _init_weights(self, module):
 		if isinstance(module, nn.Embedding):

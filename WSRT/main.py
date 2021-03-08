@@ -45,8 +45,8 @@ assert os.path.isdir("tb/"), "You need a folder called 'tb' for tensorboard"
 assert os.path.isdir("output/dict/"), "You need a folder called 'dict' in order to save/load a dictionary"
 assert os.path.isdir("checkpoints/"), "You need a folder called 'checkpoints' in order to save model params"
 
-# if args.mode == 'train':
-# 	assert args.validation, "You need to provide a validation set (--validation) for training"
+if args.mode == 'train':
+	assert args.validation, "You need to provide a validation set (--validation) for training"
 if args.mode == 'finetune':
 	assert args.dict, "You need to provide a dictionary path (--dict) for finetuning"
 	assert args.params, "You need to provide a params path (--params) for finetuning"
@@ -105,13 +105,13 @@ if args.mode == "train" or args.mode == "finetune":
 
 	if args.mode == "finetune":
 		model.load_state_dict(torch.load(args.params))
-	# val_dataset = data.Dataset(dataset)				# configure validation dataset object from trainging dataset object's config
-	# 												# this allows dictionary to be shared
-	# val_dataset.buildDataset(args.validation)
-	# val_dataset.device = device
-	# val_dataloader = DataLoader(val_dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],
-#           pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
-#           persistent_workers=True, collate_fn=data.dataset_collate_fn)
+	val_dataset = data.Dataset(dataset)				# configure validation dataset object from trainging dataset object's config
+													# this allows dictionary to be shared
+	val_dataset.buildDataset(args.validation)
+	val_dataset.device = device
+	val_dataloader = DataLoader(val_dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],
+          pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
+          persistent_workers=True, collate_fn=data.dataset_collate_fn)
 
 	tb_writer = SummaryWriter(tb_log_path, comment=utils.config2comment(model_config, dataset_config))
 
@@ -121,81 +121,90 @@ if args.mode == "train" or args.mode == "finetune":
 		optimizer = optim.AdamW(model.parameters(), lr=model_config["LR"])
 	criterion = nn.NLLLoss(ignore_index=dataset.dictionary.word2idx[dataset.PADDING])
 
-	EPOCHS = 1 if args.dry_run else model_config["EPOCHS"]
+	EPOCHS = 3 if args.dry_run else model_config["EPOCHS"]
 
 	model.train()
 	iteration=0
-	try:
-		for epoch in range(EPOCHS):
-			with tqdm(total=len(dataset)) as prog:
-				batch_time = AverageMeter()
-				data_time = AverageMeter()
-				update_time = AverageMeter()
+	#try:
+	for epoch in range(EPOCHS):
+		with tqdm(total=len(dataset)) as prog:
+			batch_time = AverageMeter()
+			data_time = AverageMeter()
+			update_time = AverageMeter()
 
+			batch_start_time = time.time()
+			for i, (src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(dataloader):
+				if model.RANDOMIZE_STEPS:
+					WSRT_steps = random.randint(WSRT_steps, int(WSRT_steps * model.RANDOMIZE_STEPS_SCALE_FACTOR))
+				# print(WSRT_steps)
+				# print(src_indicies)
+				# print(src_indicies.shape)
+				# print(tgt_indicies)
+				# print(tgt_indicies.shape)
+				if (args.dry_run and i == 5):
+					# 'dry run' only runs 1 epoch with 5 bathes
+					break
+
+				src_indicies = src_indicies.to(device)
+				tgt_indicies = tgt_indicies.to(device)
+				tgt_padding_mask = tgt_padding_mask.to(device)
+
+				data_time.update(time.time() - batch_start_time) # data loading time
+
+				update_start_time = time.time()
+
+				optimizer.zero_grad()
+				output, tgt = model(src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps, dataset.dictionary.word2idx[dataset.START], dataset.dictionary.word2idx[dataset.END], tgt_indicies.shape[0])
+				# print(output)
+				# print(output.shape)
+				# print(tgt_indicies.view(-1).shape)
+				loss = criterion(output, tgt.view(-1))
+				loss.backward()
+				optimizer.step()
+
+				update_time.update(time.time() - update_start_time)
+				prog.update(dataloader.batch_size)
+				
+				batch_time.update(time.time() - batch_start_time)
 				batch_start_time = time.time()
-				for i, (src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(dataloader):
-					if model.RANDOMIZE_STEPS:
-						WSRT_steps = random.randint(WSRT_steps, int(WSRT_steps * model.RANDOMIZE_STEPS_SCALE_FACTOR))
-					# print(WSRT_steps)
-					# print(src_indicies)
-					# print(src_indicies.shape)
-					# print(tgt_indicies)
-					# print(tgt_indicies.shape)
-					if (args.dry_run and i == 5):
-						# 'dry run' only runs 1 epoch with 5 bathes
-						break
 
-					src_indicies = src_indicies.to(device)
-					tgt_indicies = tgt_indicies.to(device)
+				tb_writer.add_scalar("Loss/train", loss.item(), iteration)
+				iteration += dataset.BATCH_SIZE
 
-					data_time.update(time.time() - batch_start_time) # data loading time
-
-					update_start_time = time.time()
-
-					optimizer.zero_grad()
-					output, tgt = model(src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps, dataset.dictionary.word2idx[dataset.START], dataset.dictionary.word2idx[dataset.END], tgt_indicies.shape[0])
-					# print(output)
-					# print(output.shape)
-					# print(tgt_indicies.view(-1).shape)
-					loss = criterion(output, tgt.view(-1))
-					loss.backward()
-					optimizer.step()
-
-					update_time.update(time.time() - update_start_time)
-					prog.update(dataloader.batch_size)
-					
-					batch_time.update(time.time() - batch_start_time)
-					batch_start_time = time.time()
-
-					tb_writer.add_scalar("Loss/train", loss.item(), iteration)
-					iteration += dataset.BATCH_SIZE
-
-					# calculate and log validation loss every 1/5 of a dataset pass
-					if iteration % (len(dataset)//5) == 0:
-						model.eval()
-						with torch.no_grad():
-							epoch_val_loss = 0
-							for (src_indicies, tgt_indicies, WSRT_steps) in val_dataloader:
+				# calculate and log validation loss every 1/5 of a dataset pass
+				if (args.dry_run and i == 4) or iteration % (len(dataset)//5) == 0:
+					model.eval()
+					with torch.no_grad():
+						epoch_val_loss = 0
+						with tqdm(total=len(val_dataset)) as val_prog:
+							for i, (src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(val_dataloader):
+								if (args.dry_run and i == 1):
+									# 'dry run' only runs 1 epoch with 5 bathes
+									break
+								if model.RANDOMIZE_STEPS:
+									WSRT_steps = random.randint(WSRT_steps, int(WSRT_steps * model.RANDOMIZE_STEPS_SCALE_FACTOR))
 								src_indicies = src_indicies.to(device)
 								tgt_indicies = tgt_indicies.to(device)
+								tgt_padding_mask = tgt_padding_mask.to(device)
 								
-								output = model(src_indicies, WSRT_steps, dataset.dictionary.word2idx[dataset.START], dataset.dictionary.word2idx[dataset.END], tgt_indicies.shape[0])
-								loss = criterion(output, tgt_indicies.view(-1))
+								output, tgt = model(src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps, dataset.dictionary.word2idx[dataset.START], dataset.dictionary.word2idx[dataset.END], tgt_indicies.shape[0])
+								loss = criterion(output, tgt.view(-1))
 								epoch_val_loss += loss.item()
+								val_prog.update(val_dataloader.batch_size)
 							
 							epoch_val_loss /= len(val_dataloader)
 							tb_writer.add_scalar("Loss/validation", epoch_val_loss, iteration)
-						model.train()
+					model.train()
 
-				# at end of epoch, save checkpoint
-				checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}.pt'.format(model_config["NAME"], epoch))
-				torch.save(model.state_dict(), checkpoint_path)
+			# at end of epoch, save checkpoint
+			checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}.pt'.format(model_config["NAME"], epoch))
+			torch.save(model.state_dict(), checkpoint_path)
 
-	except:
-		print('-' * 89)
-		print('Exiting from training early')
-		checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
-		torch.save(model.state_dict(), checkpoint_path)
+	# except:
+	# 	print('-' * 89)
+	# 	print('Exiting from training early')
+	# 	checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
+	# 	torch.save(model.state_dict(), checkpoint_path)
 	# print('Saving model to {}'.format(model_path))
 	# torch.save(model.state_dict(), model_path)
 	dataset.saveDictionary(dictionary_path)
