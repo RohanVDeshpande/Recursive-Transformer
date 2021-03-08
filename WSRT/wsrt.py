@@ -103,10 +103,10 @@ class WSRT(nn.Module):
 		for i in range(numSteps - 1):
 			# print(i)
 			# pad everything after the end token:
-			src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
-			src_indicies =  self.predictUnsupervisedStep(src_indicies, src_padding_mask, start_token_index, hidden_length)
-		src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
-		return self.predictSupervisedStep(src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask, hidden_length)
+			# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
+			src_indicies =  self.predictUnsupervisedStep(src_indicies, None, start_token_index, hidden_length)
+		# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
+		return self.predictSupervisedStep(src_indicies, None, tgt_indicies, tgt_padding_mask, hidden_length)
 
 
 	def predictUnsupervisedStep(self, src_indicies, src_padding_mask, start_token_index, hidden_length):
@@ -123,9 +123,9 @@ class WSRT(nn.Module):
 		for k in range(hidden_length):
 			tgt = self.embed(tgt_indicies)		# (1, N, E)
 			tgt = self.pos_encoder(tgt)
-			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
+			# tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
 			#print(tgt_mask)
-			output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask) # (T, N, E)
+			output = self.transformer.decoder(tgt, memory, tgt_mask=None) # (T, N, E)
 			output = output[-1, :, :]	# (1, N, E)
 			output = self.lin_out(output)
 			output = self.log_softmax(output)	

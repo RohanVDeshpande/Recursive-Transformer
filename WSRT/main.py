@@ -170,17 +170,17 @@ if args.mode == "train" or args.mode == "finetune":
 					batch_start_time = time.time()
 
 					tb_writer.add_scalar("Loss/train", loss.item(), iteration)
-					iteration += dataset.BATCH_SIZE
+					iteration += 1
 
 					# calculate and log validation loss every 1/5 of a dataset pass
-					if (args.dry_run and i == 4) or iteration % (len(dataset)//5) == 0:
+					if (args.dry_run and i == 4) or iteration % (len(dataloader)//5) == 0:
 						model.eval()
 						with torch.no_grad():
 							epoch_val_loss = 0
 							with tqdm(total=len(val_dataset)) as val_prog:
 								val_prog.set_description("Validating")
-								for i, (src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(val_dataloader):
-									if (args.dry_run and i == 1):
+								for j, (src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(val_dataloader):
+									if (args.dry_run and j == 1):
 										# 'dry run' only runs 1 epoch with 5 bathes
 										break
 									if model.RANDOMIZE_STEPS:
@@ -202,7 +202,7 @@ if args.mode == "train" or args.mode == "finetune":
 				checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}.pt'.format(model_config["NAME"], epoch))
 				torch.save(model.state_dict(), checkpoint_path)
 	except:
-		print('-' * 89)
+		print('\n', '-' * 89)
 		print('Exiting from training early')
 		checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
 		torch.save(model.state_dict(), checkpoint_path)

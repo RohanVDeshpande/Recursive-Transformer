@@ -1,5 +1,5 @@
 {
-	"NAME": "WSRT_1.0",
+	"NAME": "WSRT_1.05",
 	"FEATURES" : 128,
 	"HEADS" : 8,
 	"ENC_LAYERS" : 6,
@@ -9,6 +9,6 @@
 	"LR": 0.0005,
 	"EPOCHS": 1000,
 	"RANDOMIZE_STEPS": true,
-	"RANDOMIZE_STEPS_SCALE_FACTOR": 3.1,
-	"DATASET_CONFIG": "config/dataset_larger_config.json"
+	"RANDOMIZE_STEPS_SCALE_FACTOR": 2.1,
+	"DATASET_CONFIG": "config/dataset_wsrt.json"
 }
