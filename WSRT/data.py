@@ -161,4 +161,5 @@ def dataset_collate_fn(batch):
     src_indicies, tgt_indicies, steps = zip(*batch)
     src_indicies = torch.cat(src_indicies, dim=1)
     tgt_indicies = torch.cat(tgt_indicies, dim=1)
-    return src_indicies, tgt_indicies, max(random.randint(steps, steps * 1.5))
+    steps = max(steps)
+    return src_indicies, tgt_indicies, random.randint(steps, int(steps * 1.5))

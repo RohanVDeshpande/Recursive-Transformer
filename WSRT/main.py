@@ -134,6 +134,7 @@ if args.mode == "train" or args.mode == "finetune":
 
 				batch_start_time = time.time()
 				for i, (src_indicies, tgt_indicies, WSRT_steps) in enumerate(dataloader):
+					print(WSRT_steps)
 					# print(src_indicies)
 					# print(src_indicies.shape)
 					# print(tgt_indicies)
@@ -193,8 +194,8 @@ if args.mode == "train" or args.mode == "finetune":
 		print('Exiting from training early')
 		checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
 		torch.save(model.state_dict(), checkpoint_path)
-	print('Saving model to {}'.format(model_path))
-	torch.save(model.state_dict(), model_path)
+	# print('Saving model to {}'.format(model_path))
+	# torch.save(model.state_dict(), model_path)
 	dataset.saveDictionary(dictionary_path)
 
 elif args.mode == "test":

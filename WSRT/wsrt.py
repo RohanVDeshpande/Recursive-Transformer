@@ -54,6 +54,7 @@ class WSRT(nn.Module):
 
 	def __init__(self, config):
 		super().__init__()
+		self.RANDOMIZE_HIDDEN_LEN = False
 		for key in config:
 			setattr(self, key, config[key])
 
@@ -89,9 +90,9 @@ class WSRT(nn.Module):
 
 
 	def forward(self, indicies, numSteps, start_token_index, end_token_index, hidden_length):
-		print("Start idx: {}, End idx: {}".format(start_token_index, end_token_index))
+		#print("Start idx: {}, End idx: {}".format(start_token_index, end_token_index))
 		for i in range(numSteps):
-			print(i)
+			#print(i)
 			# pad everything after the end token:
 			src_padding_mask = torch.cat([torch.tensor([ 0 if len((indicies[:, i] == end_token_index).nonzero(as_tuple=True)[0]) == 0 or \
 															j <= (indicies[:, i] == end_token_index).nonzero(as_tuple=True)[0][0] else 1 \
@@ -110,6 +111,9 @@ class WSRT(nn.Module):
 
 		logits = []
 		tgt_indicies = torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long, device=self.device)		# (1, N)
+
+		if self.RANDOMIZE_HIDDEN_LEN and not lastStep:
+			hidden_length = random.randint(hidden_length, int(hidden_length * 1.25))
 
 		for k in range(hidden_length):
 			tgt = self.embed(tgt_indicies)		# (1, N, E)
