@@ -128,6 +128,7 @@ if args.mode == "train" or args.mode == "finetune":
 	#try:
 	for epoch in range(EPOCHS):
 		with tqdm(total=len(dataset)) as prog:
+			prog.set_description("Training")
 			batch_time = AverageMeter()
 			data_time = AverageMeter()
 			update_time = AverageMeter()
@@ -177,6 +178,7 @@ if args.mode == "train" or args.mode == "finetune":
 					with torch.no_grad():
 						epoch_val_loss = 0
 						with tqdm(total=len(val_dataset)) as val_prog:
+							val_prog.set_description("Validating")
 							for i, (src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(val_dataloader):
 								if (args.dry_run and i == 1):
 									# 'dry run' only runs 1 epoch with 5 bathes
