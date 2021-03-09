@@ -10,6 +10,6 @@
 	"BATCH_SIZE": 64,
 	"SHUFFLE": true,
 	"WORKERS": 4,
-	"PIN_MEMORY": true,
+	"PIN_MEMORY": false,
     "PREFETCH_FACTOR": 4
 }
