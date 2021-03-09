@@ -85,7 +85,7 @@ if args.mode == "test" or args.mode == "finetune":
 	dataset.loadDictionary(dictionary_path)
 	if args.mode == "finetune":
 		print('unfreezing dataset for finetune')
-		dataset.freeze_dict = False
+		dataset.dictionary.freeze_dict = False
 dataset.buildDataset(args.data)
 dataset.device = device
 
@@ -112,7 +112,7 @@ if args.mode == "train" or args.mode == "finetune":
 													# this allows dictionary to be shared
 	if args.mode == "finetune":
 		print('unfreezing validation set for finetune')
-		val_dataset.freeze_dict = False
+		val_dataset.dictionary.freeze_dict = False
 	val_dataset.buildDataset(args.validation)
 	val_dataset.device = device
 	val_dataloader = DataLoader(val_dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],
