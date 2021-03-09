@@ -83,6 +83,8 @@ dataset = data.Dataset(dataset_config)
 if args.mode == "test" or args.mode == "finetune":
 	print("Loading dictionary from: {}".format(dictionary_path))
 	dataset.loadDictionary(dictionary_path)
+	if args.mode == "finetune":
+		dataset.freeze_dict = False
 dataset.buildDataset(args.data)
 dataset.device = device
 
