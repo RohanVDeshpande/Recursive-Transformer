@@ -1,0 +1,12 @@
+{
+	"NAME": "FRT_2.3",
+	"FEATURES" : 128,
+	"HEADS" : 8,
+	"ENC_LAYERS" : 6,
+	"DEC_LAYERS" : 6,
+	"FEED_FORWARD" : 256,
+	"OPTIMIZER": "ADAMW",
+	"LR": 0.0005,
+	"EPOCHS": 1000,
+	"DATASET_CONFIG": "config/dataset_intermed_config.json"
+}
