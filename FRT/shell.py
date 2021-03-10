@@ -2,8 +2,6 @@ import math
 import random
 from termcolor import colored
 import json
-import utils
-from utils import AverageMeter
 import os
 import sys
 import time
@@ -14,14 +12,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import argparse
-import frt
-
-import data
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
 from torch.utils.data import DataLoader
 
+from . import frt
+from . import data
+from .utils import AverageMeter
 
 parser = argparse.ArgumentParser(description='Forced Recursive Transformer')
 parser.add_argument('--model-config', type=str, required=True,

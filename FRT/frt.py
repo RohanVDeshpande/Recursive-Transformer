@@ -4,7 +4,8 @@ import random
 import torch
 import torch.nn as nn
 
-from ..transformer_utils import PositionalEncoding, CausalTransformerDecoder, CausalTransformerDecoderLayer
+from transformer_utils.PositionalEncoder import PositionalEncoding
+from transformer_utils.CausalDecoder import CausalTransformerDecoder, CausalTransformerDecoderLayer
 
 class FRT(nn.Module):
 	""" Forced Recursive Transformer """

@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import math
 
 class PositionalEncoding(nn.Module):
     r"""Inject some information about the relative or absolute position of the tokens
