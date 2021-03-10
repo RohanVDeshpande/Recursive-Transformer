@@ -4,50 +4,8 @@ import random
 import torch
 import torch.nn as nn
 
-
-class PositionalEncoding(nn.Module):
-    r"""Inject some information about the relative or absolute position of the tokens
-        in the sequence. The positional encodings have the same dimension as
-        the embeddings, so that the two can be summed. Here, we use sine and cosine
-        functions of different frequencies.
-    .. math::
-        \text{PosEncoder}(pos, 2i) = sin(pos/10000^(2i/d_model))
-        \text{PosEncoder}(pos, 2i+1) = cos(pos/10000^(2i/d_model))
-        \text{where pos is the word position and i is the embed idx)
-    Args:
-        d_model: the embed dim (required).
-        dropout: the dropout value (default=0.1).
-        max_len: the max. length of the incoming sequence (default=5000).
-    Examples:
-        >>> pos_encoder = PositionalEncoding(d_model)
-    """
-
-    def __init__(self, d_model, dropout=0.1, max_len=5000):
-        super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        r"""Inputs of forward function
-        Args:
-            x: the sequence fed to the positional encoder model (required).
-        Shape:
-            x: [sequence length, batch size, embed dim]
-            output: [sequence length, batch size, embed dim]
-        Examples:
-            >>> output = pos_encoder(x)
-        """
-
-        x = x + self.pe[:x.size(0), :]
-        return self.dropout(x)
-
+from transformer_utils.PositionalEncoder import PositionalEncoding
+from transformer_utils.CausalDecoder import CausalTransformerDecoder, CausalTransformerDecoderLayer
 
 class WSRT(nn.Module):
 	""" Weakly Supervised Recursive Transformer """
@@ -81,9 +39,14 @@ class WSRT(nn.Module):
 		# dim_feedforward: int = 2048,
 		# dropout: float = 0.1,
 		# activation: str = 'relu'
-		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, dim_feedforward=self.FEED_FORWARD)
+		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, \
+				 						  dim_feedforward=self.FEED_FORWARD, custom_decoder=CausalTransformerDecoder(
+				 						  			CausalTransformerDecoderLayer(d_model=self.FEATURES, nhead=self.HEADS, dim_feedforward=self.FEED_FORWARD),
+				 						  			self.DEC_LAYERS, torch.nn.LayerNorm(self.FEATURES)) if self.CAUSAL_INFERENCE else None
+				 						  )
 		self.pos_encoder = PositionalEncoding(self.FEATURES)
 		self.lin_out = nn.Linear(self.FEATURES, self.TOKENS)		# should bias be disabled?
+		self.lin_hidden = nn.Linear(self.FEATURES, self.FEATURES)
 		self.log_softmax = nn.LogSoftmax()
 		self.apply(self._init_weights)
 		print("WSRT model has {} parameters".format(sum(p.numel() for p in self.parameters())))
@@ -100,43 +63,39 @@ class WSRT(nn.Module):
 
 	def forward(self, src_indicies, tgt_indicies, tgt_padding_mask, numSteps, start_token_index, end_token_index, hidden_length):
 		#print("Start idx: {}, End idx: {}".format(start_token_index, end_token_index))
+		src = self.embed(src_indicies)
 		for i in range(numSteps - 1):
 			# print(i)
 			# pad everything after the end token:
 			# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
-			src_indicies =  self.predictUnsupervisedStep(src_indicies, None, start_token_index, hidden_length)
+			src =  self.predictUnsupervisedStep(src, None, start_token_index, hidden_length)
 		# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
-		return self.predictSupervisedStep(src_indicies, None, tgt_indicies, tgt_padding_mask, hidden_length)
+		return self.predictSupervisedStep(src, None, tgt_indicies, tgt_padding_mask, hidden_length)
 
 
-	def predictUnsupervisedStep(self, src_indicies, src_padding_mask, start_token_index, hidden_length):
-		#print(src_indicies)
-		src = self.embed(src_indicies)
+	def predictUnsupervisedStep(self, src, src_padding_mask, start_token_index, hidden_length):
+
 		src = self.pos_encoder(src)
 		memory = self.transformer.encoder(src, src_key_padding_mask=src_padding_mask)
-
-		tgt_indicies = torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long, device=self.device)		# (1, N)
 
 		if self.RANDOMIZE_HIDDEN_LEN and not lastStep:
 			hidden_length = random.randint(hidden_length, int(hidden_length * self.RANDOMIZE_HIDDEN_LEN_SCALE_FACTOR))
 
-		for k in range(hidden_length):
-			tgt = self.embed(tgt_indicies)		# (1, N, E)
-			tgt = self.pos_encoder(tgt)
-			# tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
-			#print(tgt_mask)
-			output = self.transformer.decoder(tgt, memory, tgt_mask=None) # (T, N, E)
-			output = output[-1, :, :]	# (1, N, E)
-			output = self.lin_out(output)
-			output = self.log_softmax(output)	
-			output = torch.argmax(output, 1)
-			tgt_indicies = torch.cat((tgt_indicies, output.view(1, -1)))
-			
-		return tgt_indicies
+		cache = None
 
-	def predictSupervisedStep(self, src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask, hidden_length):
-		
-		src = self.embed(src_indicies)
+		tgt = self.embed(torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long, device=self.device))		# (1, N, E)
+
+		for k in range(hidden_length):
+			tgt_with_positional = self.pos_encoder(tgt)
+			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
+			#print(tgt_mask)
+			output, cache = self.transformer.decoder(tgt_with_positional, memory, cache, tgt_mask=tgt_mask, memory_key_padding_mask=src_padding_mask) # (N, E)
+			output = self.lin_hidden(output)
+			tgt = torch.cat((tgt, output.view(1, -1)))
+			
+		return tgt
+
+	def predictSupervisedStep(self, src, src_padding_mask, tgt_indicies, tgt_padding_mask, hidden_length):
 		src = self.pos_encoder(src)
 		tgt = self.embed(tgt_indicies)
 		tgt = self.pos_encoder(tgt)
@@ -145,7 +104,8 @@ class WSRT(nn.Module):
 		output = self.transformer(src, tgt,
 		                          tgt_mask=tgt_mask,
 		                          src_key_padding_mask=src_padding_mask,
-		                          tgt_key_padding_mask=tgt_padding_mask)
+		                          tgt_key_padding_mask=tgt_padding_mask,
+		                          memory_key_padding_mask=src_padding_mask)
 		output = output[:-1,:, :].view(-1, self.FEATURES)
 		output = self.lin_out(output)
 		output = self.log_softmax(output)
