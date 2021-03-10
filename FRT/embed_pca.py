@@ -2,7 +2,6 @@ import math
 import random
 from termcolor import colored
 import json
-import utils
 import os
 import sys
 
@@ -10,14 +9,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 import argparse
-import frt
-
-import data
 
 from sklearn.decomposition import PCA
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 
+from . import utils
+from . import data
+from . import frt
 
 parser = argparse.ArgumentParser(description='Forced Recursive Transformer')
 parser.add_argument('--model-config', type=str, required=True,
