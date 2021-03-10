@@ -3,7 +3,7 @@ import random
 
 import torch
 import torch.nn as nn
-
+from CausalDecoder import CausalTransformerDecoder, CausalTransformerDecoderLayer
 
 class PositionalEncoding(nn.Module):
     r"""Inject some information about the relative or absolute position of the tokens
@@ -76,7 +76,12 @@ class FRT(nn.Module):
 		# dim_feedforward: int = 2048,
 		# dropout: float = 0.1,
 		# activation: str = 'relu'
-		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, dim_feedforward=self.FEED_FORWARD)
+
+		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, \
+				 						  dim_feedforward=self.FEED_FORWARD, custom_decoder=CausalTransformerDecoder(
+				 						  			CausalTransformerDecoderLayer(d_model=self.FEATURES, nhead=self.HEADS, dim_feedforward=self.FEED_FORWARD),
+				 						  			self.DEC_LAYERS, torch.nn.LayerNorm(self.FEATURES))
+				 						  )
 		self.src_pos_encoder = PositionalEncoding(self.FEATURES)
 		self.tgt_pos_encoder = PositionalEncoding(self.FEATURES)
 		self.lin_out = nn.Linear(self.FEATURES, self.TOKENS)		# should bias be disabled?
@@ -122,7 +127,7 @@ class FRT(nn.Module):
 		tgt_indicies = torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long, device=self.device)		# (1, N)
 		#print(tgt_indicies.shape)
 		#tgt = torch.full((1, src_indicies.shape[1], self.FEATURES), start_token_index)	# (1, N, E)
-
+		cache = None
 		# tgt_key_padding_mask=???
 		steps = round(1.5 * self.TGT_LEN)
 		for k in range(steps):
@@ -130,7 +135,7 @@ class FRT(nn.Module):
 			tgt = self.tgt_pos_encoder(tgt)
 			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
 			#print(tgt_mask)
-			output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask)
+			output, cache = self.transformer.decoder(tgt, memory, cache, tgt_mask=tgt_mask)
 			# output -> (T, N, E)
 			#print(output.shape)
 			output = output[-1, :, :]	# (1, N, E)
