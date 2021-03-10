@@ -107,7 +107,7 @@ if args.mode == "train" or args.mode == "finetune":
 		os.mkdir(checkpoint_dir)
 
 	if args.mode == "finetune":
-		model.load_state_dict(torch.load(args.params))
+		model.load_state_dict(torch.load(args.params, map_location=torch.device(device)))
 	val_dataset = data.Dataset(dataset)				# configure validation dataset object from trainging dataset object's config
 													# this allows dictionary to be shared
 	if args.mode == "finetune":
@@ -131,78 +131,78 @@ if args.mode == "train" or args.mode == "finetune":
 
 	model.train()
 	iteration=0
-	try:
-		for epoch in range(EPOCHS):
-			with tqdm(total=len(dataset)) as prog:
-				batch_time = AverageMeter()
-				data_time = AverageMeter()
-				update_time = AverageMeter()
+	# try:
+	for epoch in range(EPOCHS):
+		with tqdm(total=len(dataset)) as prog:
+			batch_time = AverageMeter()
+			data_time = AverageMeter()
+			update_time = AverageMeter()
 
+			batch_start_time = time.time()
+			for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader):
+				if (args.dry_run and i == 5):
+					# 'dry run' only runs 1 epoch with 5 bathes
+					break
+
+				src_indicies = src_indicies.to(device)
+				src_padding_mask = src_padding_mask.to(device)
+				tgt_indicies = tgt_indicies.to(device)
+				tgt_padding_mask = tgt_padding_mask.to(device)
+
+				data_time.update(time.time() - batch_start_time) # data loading time
+
+				update_start_time = time.time()
+
+				optimizer.zero_grad()
+				output, tgt = model(src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask)
+				loss = criterion(output, tgt.view(-1))
+				loss.backward()
+				optimizer.step()
+
+				update_time.update(time.time() - update_start_time)
+				prog.update(dataloader.batch_size)
+				
+				batch_time.update(time.time() - batch_start_time)
 				batch_start_time = time.time()
-				for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in enumerate(dataloader):
-					if (args.dry_run and i == 5):
-						# 'dry run' only runs 1 epoch with 5 bathes
-						break
 
-					src_indicies = src_indicies.to(device)
-					src_padding_mask = src_padding_mask.to(device)
-					tgt_indicies = tgt_indicies.to(device)
-					tgt_padding_mask = tgt_padding_mask.to(device)
+				tb_writer.add_scalar("Loss/train", loss.item(), iteration)
+				iteration += dataset.BATCH_SIZE
 
-					data_time.update(time.time() - batch_start_time) # data loading time
+				# calculate and log validation loss every 1/5 of a dataset pass
+				if iteration % (len(dataset)//5) == 0:
+					model.eval()
+					with torch.no_grad():
+						epoch_val_loss = 0
+						for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in val_dataloader:
+							src_indicies = src_indicies.to(device)
+							src_padding_mask = src_padding_mask.to(device)
+							tgt_indicies = tgt_indicies.to(device)
+							tgt_padding_mask = tgt_padding_mask.to(device)
 
-					update_start_time = time.time()
+							output, tgt = model(src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask)
+							loss = criterion(output, tgt.view(-1))
+							epoch_val_loss += loss.item()
+						
+						epoch_val_loss /= len(val_dataloader)
+						tb_writer.add_scalar("Loss/validation", epoch_val_loss, iteration)
+					model.train()
 
-					optimizer.zero_grad()
-					output, tgt = model(src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask)
-					loss = criterion(output, tgt.view(-1))
-					loss.backward()
-					optimizer.step()
+			# at end of epoch, save checkpoint
+			checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}.pt'.format(model_config["NAME"], epoch))
+			torch.save(model.state_dict(), checkpoint_path)
 
-					update_time.update(time.time() - update_start_time)
-					prog.update(dataloader.batch_size)
-					
-					batch_time.update(time.time() - batch_start_time)
-					batch_start_time = time.time()
-
-					tb_writer.add_scalar("Loss/train", loss.item(), iteration)
-					iteration += dataset.BATCH_SIZE
-
-					# calculate and log validation loss every 1/5 of a dataset pass
-					if iteration % (len(dataset)//5) == 0:
-						model.eval()
-						with torch.no_grad():
-							epoch_val_loss = 0
-							for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in val_dataloader:
-								src_indicies = src_indicies.to(device)
-								src_padding_mask = src_padding_mask.to(device)
-								tgt_indicies = tgt_indicies.to(device)
-								tgt_padding_mask = tgt_padding_mask.to(device)
-
-								output, tgt = model(src_indicies, tgt_indicies, src_padding_mask, tgt_padding_mask)
-								loss = criterion(output, tgt.view(-1))
-								epoch_val_loss += loss.item()
-							
-							epoch_val_loss /= len(val_dataloader)
-							tb_writer.add_scalar("Loss/validation", epoch_val_loss, iteration)
-						model.train()
-
-				# at end of epoch, save checkpoint
-				checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}.pt'.format(model_config["NAME"], epoch))
-				torch.save(model.state_dict(), checkpoint_path)
-
-	except:
-		print('-' * 89)
-		print('Exiting from training early')
-		checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
-		torch.save(model.state_dict(), checkpoint_path)
+	# except:
+	# 	print('-' * 89)
+	# 	print('Exiting from training early')
+	# 	checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
+	# 	torch.save(model.state_dict(), checkpoint_path)
 	# print('Saving model to {}'.format(model_path))
 	# torch.save(model.state_dict(), model_path)
 	dataset.saveDictionary(dictionary_path)
 
 elif args.mode == "test":
 	assert args.params is not None, "Model params path not set up"
-	model.load_state_dict(torch.load(args.params))
+	model.load_state_dict(torch.load(args.params, map_location=torch.device(device)))
 	model.eval()
 
 	correct = 0
