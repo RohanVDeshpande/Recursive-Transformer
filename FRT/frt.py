@@ -54,6 +54,7 @@ class FRT(nn.Module):
 
 	def __init__(self, config):
 		super().__init__()
+		CAUSAL_INFERENCE=False
 		for key in config:
 			setattr(self, key, config[key])
 
@@ -80,7 +81,7 @@ class FRT(nn.Module):
 		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, \
 				 						  dim_feedforward=self.FEED_FORWARD, custom_decoder=CausalTransformerDecoder(
 				 						  			CausalTransformerDecoderLayer(d_model=self.FEATURES, nhead=self.HEADS, dim_feedforward=self.FEED_FORWARD),
-				 						  			self.DEC_LAYERS, torch.nn.LayerNorm(self.FEATURES))
+				 						  			self.DEC_LAYERS, torch.nn.LayerNorm(self.FEATURES)) if self.CAUSAL_INFERENCE else None
 				 						  )
 		self.src_pos_encoder = PositionalEncoding(self.FEATURES)
 		self.tgt_pos_encoder = PositionalEncoding(self.FEATURES)
