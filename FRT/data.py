@@ -145,9 +145,9 @@ class Dataset(Dataset):
 
     def tensor2text(self, t):
         if len(t.shape) == 1:
-            return "".join([self.dictionary.idx2word[idx] for idx in t])
+            return "".join([self.dictionary.idx2word[idx] if idx < len(self.dictionary.idx2word) else self.PADDING for idx in t])
         elif len(t.shape) == 2:
-            return [ "".join([self.dictionary.idx2word[t[j][i]] for j in range(t.shape[0])]) for i in range(t.shape[1])]
+            return [ "".join([self.dictionary.idx2word[t[j][i]] if t[j][i] < len(self.dictionary.idx2word) else self.PADDING for j in range(t.shape[0])]) for i in range(t.shape[1])]
         else:
             assert 0        # not implemented yet
 
