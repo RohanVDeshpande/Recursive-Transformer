@@ -110,7 +110,8 @@ class FRT(nn.Module):
 		output = self.transformer(src, tgt,
 		                          tgt_mask=tgt_mask,
 		                          src_key_padding_mask=src_padding_mask,
-		                          tgt_key_padding_mask=tgt_padding_mask)
+		                          tgt_key_padding_mask=tgt_padding_mask,
+		                          memory_key_padding_mask=src_padding_mask)
 		output = output[:-1,:, :].view(-1, self.FEATURES)
 		output = self.lin_out(output)
 		output = self.log_softmax(output)
@@ -136,10 +137,7 @@ class FRT(nn.Module):
 			tgt = self.tgt_pos_encoder(tgt)
 			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
 			#print(tgt_mask)
-			if self.CAUSAL_INFERENCE:
-				output, cache = self.transformer.decoder(tgt, memory, cache, tgt_mask=tgt_mask)
-			else:
-				output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask)
+			output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask, memory_key_padding_mask=src_padding_mask)
 			# output -> (T, N, E)
 			#print(output.shape)
 			output = output[-1, :, :]	# (1, N, E)
