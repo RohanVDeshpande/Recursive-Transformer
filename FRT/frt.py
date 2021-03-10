@@ -54,7 +54,7 @@ class FRT(nn.Module):
 
 	def __init__(self, config):
 		super().__init__()
-		CAUSAL_INFERENCE=False
+		self.CAUSAL_INFERENCE=False
 		for key in config:
 			setattr(self, key, config[key])
 
@@ -136,7 +136,10 @@ class FRT(nn.Module):
 			tgt = self.tgt_pos_encoder(tgt)
 			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
 			#print(tgt_mask)
-			output, cache = self.transformer.decoder(tgt, memory, cache, tgt_mask=tgt_mask)
+			if self.CAUSAL_INFERENCE:
+				output, cache = self.transformer.decoder(tgt, memory, cache, tgt_mask=tgt_mask)
+			else:
+				output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask)
 			# output -> (T, N, E)
 			#print(output.shape)
 			output = output[-1, :, :]	# (1, N, E)
