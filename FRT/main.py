@@ -202,7 +202,7 @@ if args.mode == "train" or args.mode == "finetune":
 
 elif args.mode == "test":
 	assert args.params is not None, "Model params path not set up"
-	model.load_state_dict(torch.load(args.params))
+	model.load_state_dict(torch.load(args.params, map_location=torch.device(device)))
 	model.eval()
 
 	correct = 0

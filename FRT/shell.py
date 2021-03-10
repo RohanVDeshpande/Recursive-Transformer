@@ -76,6 +76,7 @@ try:
 	while True:
 		src_text = str(input("> ")).strip()
 		src_text = dataset.START + src_text + dataset.END
+		src_text += dataset.PADDING * (dataset.SRC_LEN - len(src_text))
 		invalid_chars = []
 		for c in src_text:
 			if c not in dataset.dictionary.word2idx:
@@ -85,8 +86,9 @@ try:
 		else:
 			# print(src_text)
 			src_indicies = dataset.text2tensor(src_text).view(-1, 1)
+			src_padding_mask = torch.eq(src_indicies, dataset.dictionary.word2idx[dataset.PADDING]).view(1, -1)
 			# print(src_indicies)
-			output = model.predict(src_indicies, None, dataset.dictionary.word2idx[dataset.START])
+			output = model.predict(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START])
 			# print(output)
 			# print(output.shape)
 			output_string = dataset.tensor2text(output.view(-1)).split(dataset.END)[0]
