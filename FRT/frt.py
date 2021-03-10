@@ -137,8 +137,11 @@ class FRT(nn.Module):
 			tgt = self.tgt_pos_encoder(tgt)
 			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
 			#print(tgt_mask)
-			output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask, memory_key_padding_mask=src_padding_mask)
-			# output -> (T, N, E)
+			if self.CAUSAL_INFERENCE:
+				output, cache = self.transformer.decoder(tgt, memory, cache, tgt_mask=tgt_mask, memory_key_padding_mask=src_padding_mask)
+			else:
+				output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask, memory_key_padding_mask=src_padding_mask)
+                        # output -> (T, N, E)
 			#print(output.shape)
 			output = output[-1, :, :]	# (1, N, E)
 			#print(output.shape)
