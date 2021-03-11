@@ -1,0 +1,12 @@
+{
+	"NAME": "FRT_small_1.0",
+	"FEATURES" : 32,
+	"HEADS" : 4,
+	"ENC_LAYERS" : 6,
+	"DEC_LAYERS" : 6,
+	"FEED_FORWARD" : 64,
+	"OPTIMIZER": "ADAMW",
+	"LR": 0.0005,
+	"EPOCHS": 1000,
+	"DATASET_CONFIG": "config/dataset_larger_config.json"
+}
