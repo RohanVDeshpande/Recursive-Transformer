@@ -67,7 +67,8 @@ device = torch.device("cuda" if args.cuda else "cpu")
 with open(args.model_config) as f:
   model_config = json.load(f)
   checkpoint_dir = "checkpoints/{}".format(model_config["NAME"])
-  dictionary_path = args.dict if args.dict else "output/dict/{}_dict.json".format(model_config["NAME"])
+  dictionary_in_path = args.dict if args.dict else "output/dict/{}_dict.json".format(model_config["NAME"])
+  dictionary_out_path = "output/dict/{}_dict.json".format(model_config["NAME"])
   prediction_path = "output/{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0])
   tb_log_path = "tb/{}".format(model_config["NAME"])
 
@@ -81,8 +82,8 @@ with open(args.model_config) as f:
 
 dataset = data.Dataset(dataset_config)
 if args.mode == "test" or args.mode == "finetune":
-	print("Loading dictionary from: {}".format(dictionary_path))
-	dataset.loadDictionary(dictionary_path)
+	print("Loading dictionary from: {}".format(dictionary_in_path))
+	dataset.loadDictionary(dictionary_in_path)
 	if args.mode == "finetune":
 		print('unfreezing dataset for finetune')
 		dataset.dictionary.freeze_dict = False
@@ -171,6 +172,7 @@ if args.mode == "train" or args.mode == "finetune":
 				# calculate and log validation loss every 1/5 of a dataset pass
 				if iteration % (len(dataset)//5) == 0:
 					model.eval()
+					print('VALIDATING ITER {}'.format(iteration))
 					with torch.no_grad():
 						epoch_val_loss = 0
 						for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in val_dataloader:
@@ -198,7 +200,7 @@ if args.mode == "train" or args.mode == "finetune":
 	# 	torch.save(model.state_dict(), checkpoint_path)
 	# print('Saving model to {}'.format(model_path))
 	# torch.save(model.state_dict(), model_path)
-	dataset.saveDictionary(dictionary_path)
+	dataset.saveDictionary(dictionary_out_path)
 
 elif args.mode == "test":
 	assert args.params is not None, "Model params path not set up"
