@@ -199,8 +199,6 @@ if args.mode == "train" or args.mode == "finetune":
 		print('Exiting from training early')
 		checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
 		torch.save(model.state_dict(), checkpoint_path)
-	print('Saving model to {}'.format(model_path))
-	torch.save(model.state_dict(), model_path)
 	dataset.saveDictionary(dictionary_out_path)
 
 elif args.mode == "test":
