@@ -37,11 +37,12 @@ parser.add_argument('--cuda', action='store_true',
 parser.add_argument('--params', type=str, help='Model params path for finetuning or testing')
 parser.add_argument('--dict', type=str, help='Dictionary path for finetuning or testing')
 parser.add_argument('--dry-run', action='store_true', help='enable dry run, one or two batches')
+parser.add_argument('--logdir', type=str, help='TensorBoard logging directory', default='tb')
 
 args = parser.parse_args()
 
 assert os.path.isdir("output/"), "You need a folder called 'output' in order to save test predictions"
-assert os.path.isdir("tb/"), "You need a folder called 'tb' for tensorboard"
+assert os.path.isdir(args.logdir), "Your provided logdir '{}' is not a directory".format(logdir)
 assert os.path.isdir("output/dict/"), "You need a folder called 'dict' in order to save/load a dictionary"
 assert os.path.isdir("checkpoints/"), "You need a folder called 'checkpoints' in order to save model params"
 
@@ -70,7 +71,8 @@ with open(args.model_config) as f:
   dictionary_in_path = args.dict if args.dict else "output/dict/{}_dict.json".format(model_config["NAME"])
   dictionary_out_path = "output/dict/{}_dict.json".format(model_config["NAME"])
   prediction_path = "output/{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0])
-  tb_log_path = "tb/{}".format(model_config["NAME"])
+  tb_log_path = os.path.join(args.logdir, model_config["NAME"])
+  print('logging to', tb_log_path)
 
   if args.mode == "train" and os.path.exists(checkpoint_dir):
     utils.confirm("Re-training the model will overwrite the checkpoints in {}".format(checkpoint_dir))
@@ -193,13 +195,13 @@ if args.mode == "train" or args.mode == "finetune":
 			checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}.pt'.format(model_config["NAME"], epoch))
 			torch.save(model.state_dict(), checkpoint_path)
 
-	# except:
-	# 	print('-' * 89)
-	# 	print('Exiting from training early')
-	# 	checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
-	# 	torch.save(model.state_dict(), checkpoint_path)
-	# print('Saving model to {}'.format(model_path))
-	# torch.save(model.state_dict(), model_path)
+	except:
+		print('-' * 89)
+		print('Exiting from training early')
+		checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
+		torch.save(model.state_dict(), checkpoint_path)
+	print('Saving model to {}'.format(model_path))
+	torch.save(model.state_dict(), model_path)
 	dataset.saveDictionary(dictionary_out_path)
 
 elif args.mode == "test":
