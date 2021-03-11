@@ -19,6 +19,7 @@ from torch.utils.data import DataLoader
 from . import data
 from . import wsrt
 from .utils import AverageMeter
+from . import utils
 
 
 parser = argparse.ArgumentParser(description='Weakly Supervised Recursive Transformer')

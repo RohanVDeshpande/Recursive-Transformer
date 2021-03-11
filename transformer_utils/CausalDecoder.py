@@ -39,8 +39,6 @@ class CausalTransformerDecoder(nn.TransformerDecoder):
         # print("CausalTransformerDecoder forward")
         output = tgt
 
-        if cache is not None:
-            raise ValueError("cache parameter should be None in training mode")
         for mod in self.layers:
             output = mod(
                 output,

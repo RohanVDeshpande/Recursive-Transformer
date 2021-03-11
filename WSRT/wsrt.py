@@ -42,7 +42,7 @@ class WSRT(nn.Module):
 		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, \
 				 						  dim_feedforward=self.FEED_FORWARD, custom_decoder=CausalTransformerDecoder(
 				 						  			CausalTransformerDecoderLayer(d_model=self.FEATURES, nhead=self.HEADS, dim_feedforward=self.FEED_FORWARD),
-				 						  			self.DEC_LAYERS, torch.nn.LayerNorm(self.FEATURES)) if self.CAUSAL_INFERENCE else None
+				 						  			self.DEC_LAYERS, torch.nn.LayerNorm(self.FEATURES))
 				 						  )
 		self.pos_encoder = PositionalEncoding(self.FEATURES)
 		self.lin_out = nn.Linear(self.FEATURES, self.TOKENS)		# should bias be disabled?
@@ -83,15 +83,17 @@ class WSRT(nn.Module):
 
 		cache = None
 
-		tgt = self.embed(torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long, device=self.device))		# (1, N, E)
+		tgt = self.embed(torch.full((1, src.shape[1]), start_token_index, dtype=torch.long, device=self.device))		# (1, N, E)
 
 		for k in range(hidden_length):
 			tgt_with_positional = self.pos_encoder(tgt)
 			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
 			#print(tgt_mask)
-			output, cache = self.transformer.decoder(tgt_with_positional, memory, cache, tgt_mask=tgt_mask, memory_key_padding_mask=src_padding_mask) # (N, E)
+			output, cache = self.transformer.decoder.predict(tgt_with_positional, memory, cache, tgt_mask=tgt_mask, memory_key_padding_mask=src_padding_mask) # (N, E)
 			output = self.lin_hidden(output)
-			tgt = torch.cat((tgt, output.view(1, -1)))
+			# print(tgt.shape)
+			# print(output.shape)
+			tgt = torch.cat((tgt, output))
 			
 		return tgt
 
