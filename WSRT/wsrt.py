@@ -3,6 +3,7 @@ import random
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from transformer_utils.PositionalEncoder import PositionalEncoding
 from transformer_utils.CausalDecoder import CausalTransformerDecoder, CausalTransformerDecoderLayer
@@ -46,7 +47,6 @@ class WSRT(nn.Module):
 				 						  )
 		self.pos_encoder = PositionalEncoding(self.FEATURES)
 		self.lin_out = nn.Linear(self.FEATURES, self.TOKENS)		# should bias be disabled?
-		self.lin_hidden = nn.Linear(self.FEATURES, self.FEATURES)
 		self.log_softmax = nn.LogSoftmax()
 		self.apply(self._init_weights)
 		print("WSRT model has {} parameters".format(sum(p.numel() for p in self.parameters())))
@@ -70,7 +70,7 @@ class WSRT(nn.Module):
 			# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
 			src =  self.predictUnsupervisedStep(src, None, start_token_index, hidden_length)
 		# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
-		return self.predictSupervisedStep(src, None, tgt_indicies, tgt_padding_mask, hidden_length)
+		return self.predictSupervisedStep(src, None, tgt_indicies, tgt_padding_mask)
 
 
 	def predictUnsupervisedStep(self, src, src_padding_mask, start_token_index, hidden_length):
@@ -84,24 +84,33 @@ class WSRT(nn.Module):
 		cache = None
 
 		tgt = self.embed(torch.full((1, src.shape[1]), start_token_index, dtype=torch.long, device=self.device))		# (1, N, E)
+		# print("Tgt shape:", tgt.shape)
 
 		for k in range(hidden_length):
 			tgt_with_positional = self.pos_encoder(tgt)
 			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
 			#print(tgt_mask)
 			output, cache = self.transformer.decoder.predict(tgt_with_positional, memory, cache, tgt_mask=tgt_mask, memory_key_padding_mask=src_padding_mask) # (N, E)
-			output = self.lin_hidden(output)
+			output = output[-1,:, :]
+			output = self.lin_out(output)
+			# print(output.shape)
+			output = F.softmax(output)
+			# print(output.shape)
+			# print(self.embed.weight.shape)
+			output = torch.matmul(output, self.embed.weight)
+			output = torch.unsqueeze(output, 0)
+			# print(output.shape)
 			# print(tgt.shape)
 			# print(output.shape)
 			tgt = torch.cat((tgt, output))
-			
+		# print("Final tgt shape:", tgt.shape)
 		return tgt
 
-	def predictSupervisedStep(self, src, src_padding_mask, tgt_indicies, tgt_padding_mask, hidden_length):
+	def predictSupervisedStep(self, src, src_padding_mask, tgt_indicies, tgt_padding_mask):
 		src = self.pos_encoder(src)
 		tgt = self.embed(tgt_indicies)
 		tgt = self.pos_encoder(tgt)
-		tgt_mask = self.transformer.generate_square_subsequent_mask(hidden_length).to(self.device)
+		tgt_mask = self.transformer.generate_square_subsequent_mask(tgt_indicies.shape[0]).to(self.device)
 
 		output = self.transformer(src, tgt,
 		                          tgt_mask=tgt_mask,

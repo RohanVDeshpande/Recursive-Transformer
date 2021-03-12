@@ -34,7 +34,6 @@ class Dataset(Dataset):
         self.sources = []
         self.device = "cpu"     # default device
         self.TOTAL_TOKENS = None    # manually set number of tokens
-        self.RANDOMIZE_STEPS = False
 
         if isinstance(config, dict):
             self.dictionary = Dictionary()
