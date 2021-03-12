@@ -214,7 +214,8 @@ elif args.mode == "test":
 				src_indicies = src_indicies.to(device)
 				tgt_indicies = tgt_indicies.to(device)
 				src_padding_mask = src_padding_mask.to(device)
-				output = model.predict(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START])
+				breakpoint()
+				output = model.predict_recursive(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START], dataset.dictionary.word2idx[dataset.LOOP_CONTINUE])
 
 				question_strings = [ q_str.split(dataset.PADDING)[0] for q_str in dataset.tensor2text(src_indicies)]
 				target_strings = [ tgt_str.split(dataset.END)[0] for tgt_str in dataset.tensor2text(tgt_indicies)]

@@ -120,7 +120,7 @@ class FRT(nn.Module):
 		return output, tgt_indicies[1:, :]
 
 
-	def predict(self, src_indicies, src_padding_mask, start_token_index):
+	def predict(self, src_indicies, src_padding_mask, start_token_index, loop_cont_index):
 		#print(src_indicies)
 		src = self.embed(src_indicies)
 		src = self.src_pos_encoder(src)
@@ -163,3 +163,7 @@ class FRT(nn.Module):
 			#assert k == 0
 
 		return tgt_indicies
+	
+	def predict_recursive(self, src_indicies, src_padding_mask, start_token_index, loop_cont_index):
+		tgt_indicies = predict(src_indicies, src_padding_mask, start_token_index, loop_cont_index)
+		cont = torch.eq(tgt_indices, loop_cont_index)
