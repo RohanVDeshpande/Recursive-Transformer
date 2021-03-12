@@ -102,7 +102,7 @@ if args.mode == "train" or args.mode == "finetune":
 		os.mkdir(checkpoint_dir)
 
 	if args.mode == "finetune":
-		model.load_state_dict(torch.load(args.params))
+		model.load_state_dict(torch.load(args.params), strict=False)
 	val_dataset = data.Dataset(dataset)				# configure validation dataset object from trainging dataset object's config
 													# this allows dictionary to be shared
 	val_dataset.buildDataset(args.validation)
