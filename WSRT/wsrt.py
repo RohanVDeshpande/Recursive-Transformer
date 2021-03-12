@@ -70,7 +70,7 @@ class WSRT(nn.Module):
 			# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
 			src =  self.predictUnsupervisedStep(src, None, start_token_index, hidden_length)
 		# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
-		return self.predictSupervisedStep(src, None, tgt_indicies, tgt_padding_mask, hidden_length)
+		return self.predictSupervisedStep(src, None, tgt_indicies, tgt_padding_mask)
 
 
 	def predictUnsupervisedStep(self, src, src_padding_mask, start_token_index, hidden_length):
@@ -106,11 +106,11 @@ class WSRT(nn.Module):
 		# print("Final tgt shape:", tgt.shape)
 		return tgt
 
-	def predictSupervisedStep(self, src, src_padding_mask, tgt_indicies, tgt_padding_mask, hidden_length):
+	def predictSupervisedStep(self, src, src_padding_mask, tgt_indicies, tgt_padding_mask):
 		src = self.pos_encoder(src)
 		tgt = self.embed(tgt_indicies)
 		tgt = self.pos_encoder(tgt)
-		tgt_mask = self.transformer.generate_square_subsequent_mask(hidden_length).to(self.device)
+		tgt_mask = self.transformer.generate_square_subsequent_mask(tgt_indicies.shape[0]).to(self.device)
 
 		output = self.transformer(src, tgt,
 		                          tgt_mask=tgt_mask,
