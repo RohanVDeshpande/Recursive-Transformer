@@ -68,7 +68,7 @@ class WSRT(nn.Module):
 									for j in range(src_indicies.shape[0])], dtype=torch.bool, device=self.device).view(1, -1)
 							for i in range(src_indicies.shape[1])], dim=0)
 
-	def forward(self, src_indicies, tgt_indicies, tgt_padding_mask, numSteps, start_token_index, end_token_index, hidden_length):
+	def forward(self, src_indicies, tgt_indicies, numSteps, start_token_index, end_token_index, hidden_length):
 		#print("Start idx: {}, End idx: {}".format(start_token_index, end_token_index))
 		src = self.embed(src_indicies)
 		for i in range(numSteps - 1):
@@ -77,7 +77,7 @@ class WSRT(nn.Module):
 			# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
 			src =  self.predictUnsupervisedStep(src, None, start_token_index, hidden_length)
 		# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
-		return self.predictSupervisedStep(src, None, tgt_indicies, tgt_padding_mask)
+		return self.predictSupervisedStep(src, None, tgt_indicies, None)
 
 	def predict(self, src_indicies, src_padding_mask, start_token_index):
 		src = self.embed(src_indicies)
