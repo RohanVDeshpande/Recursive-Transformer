@@ -45,9 +45,16 @@ class WSRT(nn.Module):
 				 						  			CausalTransformerDecoderLayer(d_model=self.FEATURES, nhead=self.HEADS, dim_feedforward=self.FEED_FORWARD),
 				 						  			self.DEC_LAYERS, torch.nn.LayerNorm(self.FEATURES))
 				 						  )
+
 		self.pos_encoder = PositionalEncoding(self.FEATURES)
 		self.lin_out = nn.Linear(self.FEATURES, self.TOKENS)		# should bias be disabled?
 		self.log_softmax = nn.LogSoftmax()
+
+		# self.loop_predict_transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.LOOP_HEADS, num_encoder_layers=self.LOOP_ENC_LAYERS,
+		# 											   num_decoder_layers=self.LOOP_DEC_LAYERS, dim_feedforward=self.LOOP_FEED_FORWARD)
+		# self.loop_decoder_input = nn.Parameter(torch.ones(1, self.FEATURES), requires_grad=True)
+		# self.loop_lin = nn.Linear(self.FEATURES, 1)
+
 		self.apply(self._init_weights)
 		print("WSRT model has {} parameters".format(sum(p.numel() for p in self.parameters())))
 
@@ -61,7 +68,7 @@ class WSRT(nn.Module):
 									for j in range(src_indicies.shape[0])], dtype=torch.bool, device=self.device).view(1, -1)
 							for i in range(src_indicies.shape[1])], dim=0)
 
-	def forward(self, src_indicies, tgt_indicies, tgt_padding_mask, numSteps, start_token_index, end_token_index, hidden_length):
+	def forward(self, src_indicies, tgt_indicies, numSteps, start_token_index, end_token_index, hidden_length):
 		#print("Start idx: {}, End idx: {}".format(start_token_index, end_token_index))
 		src = self.embed(src_indicies)
 		for i in range(numSteps - 1):
@@ -70,8 +77,42 @@ class WSRT(nn.Module):
 			# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
 			src =  self.predictUnsupervisedStep(src, None, start_token_index, hidden_length)
 		# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
-		return self.predictSupervisedStep(src, None, tgt_indicies, tgt_padding_mask)
+		return self.predictSupervisedStep(src, None, tgt_indicies, None)
 
+	def predict(self, src_indicies, src_padding_mask, start_token_index, srcAsIndex=True):
+		if srcAsIndex:
+			src = self.embed(src_indicies)
+		src = self.pos_encoder(src)
+		memory = self.transformer.encoder(src)
+		tgt_indicies = torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long, device=self.device)		# (1, N)
+		
+		cache = None
+		steps = round(self.TGT_LEN)
+		for k in range(steps):
+			tgt = self.embed(tgt_indicies)		# (1, N, E)
+			tgt = self.pos_encoder(tgt)
+			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
+
+			output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask)
+
+			output = output[-1, :, :]	# (1, N, E)
+			output = self.lin_out(output)
+			output = self.log_softmax(output)
+			output = torch.argmax(output, 1)
+			tgt_indicies = torch.cat((tgt_indicies, output.view(1, -1)))
+
+		return tgt_indicies
+
+
+	def predictFinal(self, src_indicies, start_token_index, numSteps):
+		src = self.embed(src_indicies)
+		for i in range(numSteps - 1):
+			# print(i)
+			# pad everything after the end token:
+			# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
+			src =  self.predictUnsupervisedStep(src, None, start_token_index, self.TGT_LEN)
+		# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
+		return self.predict(src, None, tgt_indicies, None, srcAsIndex=False)
 
 	def predictUnsupervisedStep(self, src, src_padding_mask, start_token_index, hidden_length):
 
@@ -123,3 +164,12 @@ class WSRT(nn.Module):
 		#print(output.shape)
 		#print(tgt_indicies.shape)
 		return output, tgt_indicies[1:, :]
+
+
+	# def predictLoop(self, src_indicies):
+	# 	src = self.embed(src_indicies)
+	# 	src = self.pos_encoder(src)
+	# 	output = self.loop_predict_transformer(src, self.loop_decoder_input.expand(src.shape[1], -1))
+	# 	output = self.loop_lin(output)
+	# 	output = F.sigmoid(output)
+	# 	return output.view(-1)
