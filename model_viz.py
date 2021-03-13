@@ -27,6 +27,7 @@ parser.add_argument('--model-config', type=str, required=True,
 parser.add_argument('--params', type=str, required=True, help='Model path')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
+parser.add_argument('--expr', type=str, required=True)
 
 
 args = parser.parse_args()
@@ -77,7 +78,8 @@ model.eval()
 fig, axs = plt.subplots(1, model.ENC_LAYERS)
 
 
-srctext = "1+2+3+4"
+# srctext = "11+22"
+srctext = args.expr
 srctext = dataset.START + srctext + dataset.END
 if args.type == "wsrt":
 	srctext += (dataset.TGT_LEN - len(srctext)) * dataset.PADDING
