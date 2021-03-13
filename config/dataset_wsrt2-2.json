@@ -1,0 +1,16 @@
+{
+	"START" : "\u0936",
+	"TGT_LOOP_SEP" : "\u0933",
+	"LOOP_STOP": "\u3163",
+	"LOOP_CONTINUE": "\u3147",
+	"END" : "\u0915",
+	"PADDING" : "\u0939",
+	"SRC_LEN" : 32,
+	"TGT_LEN" : 16,
+	"BATCH_SIZE": 64,
+	"SHUFFLE": true,
+	"WORKERS": 6,
+	"PIN_MEMORY": false,
+	"PREFETCH_FACTOR": 4,
+	"TOTAL_TOKENS": 32
+}
