@@ -215,4 +215,34 @@ if args.mode == "train" or args.mode == "finetune":
 
 elif args.mode == "test":
 	assert args.params is not None, "Model params path not set up"
-	print("WSRT testing is not implemented yet")
+	model.load_state_dict(torch.load(args.params, map_location=torch.device(device)))
+	model.eval()
+	with torch.no_grad():
+		correct = 0
+		total = 0
+
+		with open(prediction_path, "w") as f:
+			with tqdm(total=len(dataset)) as prog:
+				for (src_indicies, tgt_indicies, WSRT_steps) in dataloader:
+					if model.RANDOMIZE_STEPS:
+						WSRT_steps = random.randint(WSRT_steps, int(WSRT_steps * model.RANDOMIZE_STEPS_SCALE_FACTOR))
+					src_indicies = src_indicies.to(device)
+					tgt_indicies = tgt_indicies.to(device)
+
+					output = model.predictFinal(src_indicies, dataset.dictionary.word2idx[dataset.START], WSRT_steps)
+
+					question_strings = dataset.tensor2text(src_indicies)
+					target_strings = dataset.tensor2text(tgt_indicies)
+					output_strings = dataset.tensor2text(output)
+
+					for j in range(len(target_strings)):
+						question = question_strings[j]
+						pred = output_strings[j]
+						actual = target_strings[j]
+
+						print("Q: {} , A: {}".format(question, actual), file=f)
+						print("Got: '{}' steps: {} {}\n".format(pred, WSRT_steps, "correct" if actual == pred else "wrong"), file=f)
+						correct += (actual == pred)
+						total += 1
+					prog.update(dataloader.batch_size)
+			print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100), file=f)

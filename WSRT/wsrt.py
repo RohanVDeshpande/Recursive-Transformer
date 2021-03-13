@@ -79,8 +79,9 @@ class WSRT(nn.Module):
 		# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
 		return self.predictSupervisedStep(src, None, tgt_indicies, None)
 
-	def predict(self, src_indicies, src_padding_mask, start_token_index):
-		src = self.embed(src_indicies)
+	def predict(self, src_indicies, src_padding_mask, start_token_index, srcAsIndex=True):
+		if srcAsIndex:
+			src = self.embed(src_indicies)
 		src = self.pos_encoder(src)
 		memory = self.transformer.encoder(src)
 		tgt_indicies = torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long, device=self.device)		# (1, N)
@@ -101,6 +102,17 @@ class WSRT(nn.Module):
 			tgt_indicies = torch.cat((tgt_indicies, output.view(1, -1)))
 
 		return tgt_indicies
+
+
+	def predictFinal(self, src_indicies, start_token_index, numSteps):
+		src = self.embed(src_indicies)
+		for i in range(numSteps - 1):
+			# print(i)
+			# pad everything after the end token:
+			# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
+			src =  self.predictUnsupervisedStep(src, None, start_token_index, self.TGT_LEN)
+		# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
+		return self.predict(src, None, tgt_indicies, None, srcAsIndex=False)
 
 	def predictUnsupervisedStep(self, src, src_padding_mask, start_token_index, hidden_length):
 
