@@ -80,15 +80,14 @@ class WSRT(nn.Module):
 		return self.predictSupervisedStep(src, None, tgt_indicies, None)
 
 	def predict(self, src_indicies, src_padding_mask, start_token_index, srcAsIndex=True):
-		if srcAsIndex:
-			src = self.embed(src_indicies)
+		src = self.embed(src_indicies) if srcAsIndex else src_indicies
 		src = self.pos_encoder(src)
 		memory = self.transformer.encoder(src)
 		tgt_indicies = torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long, device=self.device)		# (1, N)
 		
 		cache = None
 		steps = round(self.TGT_LEN)
-		for k in range(steps):
+		for k in range(steps-1):
 			tgt = self.embed(tgt_indicies)		# (1, N, E)
 			tgt = self.pos_encoder(tgt)
 			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
@@ -112,7 +111,7 @@ class WSRT(nn.Module):
 			# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
 			src =  self.predictUnsupervisedStep(src, None, start_token_index, self.TGT_LEN)
 		# src_padding_mask = self.generate_src_padding(src_indicies, end_token_index)
-		return self.predict(src, None, tgt_indicies, None, srcAsIndex=False)
+		return self.predict(src, None, start_token_index, srcAsIndex=False)
 
 	def predictUnsupervisedStep(self, src, src_padding_mask, start_token_index, hidden_length):
 
