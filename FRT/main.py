@@ -129,6 +129,7 @@ if args.mode == "train" or args.mode == "finetune":
 	elif model_config["OPTIMIZER"] == "ADAMW":
 		optimizer = optim.AdamW(model.parameters(), lr=model_config["LR"])
 	criterion = nn.NLLLoss(ignore_index=dataset.dictionary.word2idx[dataset.PADDING])
+	scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=model_config["LR_SCHEDULER_DECAY"], verbose=True)
 
 	EPOCHS = 1 if args.dry_run else model_config["EPOCHS"]
 
@@ -190,6 +191,7 @@ if args.mode == "train" or args.mode == "finetune":
 							epoch_val_loss /= len(val_dataloader)
 							tb_writer.add_scalar("Loss/validation", epoch_val_loss, iteration)
 						model.train()
+						scheduler.step()
 
 				# at end of epoch, save checkpoint
 				checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}.pt'.format(model_config["NAME"], epoch))
