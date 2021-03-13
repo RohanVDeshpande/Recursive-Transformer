@@ -1,6 +1,5 @@
 import math
 import random
-#from termcolor import colored
 import json
 import os
 import sys
