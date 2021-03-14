@@ -23,15 +23,15 @@ from . import utils
 
 parser = argparse.ArgumentParser(description='Weakly Supervised Recursive Transformer')
 parser.add_argument('--mode', type=str, default=None, required=True,
-                    help="Choose train mode vs. test mode vs. finetune",
+										help="Choose train mode vs. test mode vs. finetune",
 					choices=["train", "test", "finetune"])
 parser.add_argument('--data', type=str, required=True,
-                    help='Dataset path (for training or testing)')
+										help='Dataset path (for training or testing)')
 parser.add_argument('--validation', type=str, help='Validation set path')
 parser.add_argument('--model-config', type=str, required=True,
-                    help='Model json config')
+										help='Model json config')
 parser.add_argument('--cuda', action='store_true',
-                    help='use CUDA')
+										help='use CUDA')
 parser.add_argument('--params', type=str, help='Model params path for finetuning or testing')
 parser.add_argument('--dict', type=str, help='Dictionary path for finetuning or testing')
 parser.add_argument('--dry-run', action='store_true', help='enable dry run, one or two batches')
@@ -54,39 +54,41 @@ if args.mode == 'testing':
 # Set the random seed manually for reproducibility.
 # torch.manual_seed(args.seed)
 if torch.cuda.is_available():
-    if not args.cuda:
-    	utils.confirm("You have a CUDA device, so you should probably run with --cuda.")
-    else:
-    	print("Using CUDA device")
+		if not args.cuda:
+			utils.confirm("You have a CUDA device, so you should probably run with --cuda.")
+		else:
+			print("Using CUDA device")
 
 device = torch.device("cuda" if args.cuda else "cpu")
 
 
 with open(args.model_config) as f:
-  model_config = json.load(f)
-  checkpoint_dir = "checkpoints/{}".format(model_config["NAME"])
-  dictionary_path = args.dict if args.dict else "output/dict/{}_dict.json".format(model_config["NAME"])
-  prediction_path = "output/{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0])
-  tb_log_path = "tb/{}".format(model_config["NAME"])
+	model_config = json.load(f)
+	checkpoint_dir = "checkpoints/{}".format(model_config["NAME"])
+	dictionary_path = args.dict if args.dict else "output/dict/{}_dict.json".format(model_config["NAME"])
+	prediction_path = "output/{}_{}.txt".format(model_config["NAME"], os.path.splitext(os.path.basename(args.data))[0])
+	tb_log_path = "tb/{}".format(model_config["NAME"])
 
-  if args.mode == "train" and os.path.exists(checkpoint_dir):
-    utils.confirm("Re-training the model will overwrite the checkpoints in {}".format(checkpoint_dir))
-  elif args.mode == "test" and os.path.exists(prediction_path):
-   utils.confirm("Re-testing will cause the prediction output file to be overwritten: {}".format(prediction_path))
+	if args.mode == "train" and os.path.exists(checkpoint_dir):
+		utils.confirm("Re-training the model will overwrite the checkpoints in {}".format(checkpoint_dir))
+	elif args.mode == "test" and os.path.exists(prediction_path):
+	 utils.confirm("Re-testing will cause the prediction output file to be overwritten: {}".format(prediction_path))
 
-  with open(model_config["DATASET_CONFIG"]) as f:
-  	dataset_config = json.load(f)
+	with open(model_config["DATASET_CONFIG"]) as f:
+		dataset_config = json.load(f)
 
 dataset = data.Dataset(dataset_config)
 if args.mode == "test" or args.mode == "finetune":
 	print("Loading dictionary from: {}".format(dictionary_path))
 	dataset.loadDictionary(dictionary_path)
+	if args.mode == "finetune":
+			dataset.dictionary.freeze_dict = False
 dataset.buildDataset(args.data)
 dataset.device = device
 
 dataloader = DataLoader(dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],
-           pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
-           persistent_workers=True, collate_fn=data.dataset_collate_fn)
+					 pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
+					 persistent_workers=True, collate_fn=data.dataset_collate_fn)
 
 model_config["TOKENS"] = dataset.tokens()
 model_config["SRC_LEN"] = dataset.SRC_LEN
@@ -105,11 +107,13 @@ if args.mode == "train" or args.mode == "finetune":
 		model.load_state_dict(torch.load(args.params), strict=False)
 	val_dataset = data.Dataset(dataset)				# configure validation dataset object from trainging dataset object's config
 													# this allows dictionary to be shared
+	if args.mode == "finetune":
+		val_dataset.dictionary.freeze_dict = False
 	val_dataset.buildDataset(args.validation)
 	val_dataset.device = device
 	val_dataloader = DataLoader(val_dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],
-          pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
-          persistent_workers=True, collate_fn=data.dataset_collate_fn)
+					pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
+					persistent_workers=True, collate_fn=data.dataset_collate_fn)
 
 	tb_writer = SummaryWriter(tb_log_path, comment=utils.config2comment(model_config, dataset_config))
 
@@ -118,7 +122,7 @@ if args.mode == "train" or args.mode == "finetune":
 	elif model_config["OPTIMIZER"] == "ADAMW":
 		optimizer = optim.AdamW(model.parameters(), lr=model_config["LR"])
 	token_weights = torch.ones(model_config["TOKENS"], device=device)
-	token_weights[dataset.dictionary.word2idx[dataset.PADDING]] = 0.125
+	token_weights[dataset.dictionary.word2idx[dataset.PADDING]] = 0.02
 	criterion = nn.NLLLoss(weight=token_weights)
 	scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=model_config["LR_SCHEDULER_DECAY"], verbose=True)
 

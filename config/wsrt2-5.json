@@ -1,0 +1,15 @@
+{
+	"NAME": "WSRT_2.5",
+	"FEATURES" : 128,
+	"HEADS" : 8,
+	"ENC_LAYERS" : 6,
+	"DEC_LAYERS" : 6,
+	"FEED_FORWARD" : 256,
+	"OPTIMIZER": "ADAMW",
+	"LR": 0.0006,
+	"EPOCHS": 1000,
+	"RANDOMIZE_STEPS": true,
+	"RANDOMIZE_STEPS_SCALE_FACTOR": 1.5,
+	"DATASET_CONFIG": "config/dataset_wsrt2-5.json",
+	"LR_SCHEDULER_DECAY": 0.95
+}
