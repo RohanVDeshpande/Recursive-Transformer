@@ -89,9 +89,11 @@ if args.mode == "test" or args.mode == "finetune":
 dataset.buildDataset(args.data)
 dataset.device = device
 
-dataloader = DataLoader(dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],
-           pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
-           persistent_workers=True, collate_fn=data.dataset_collate_fn)
+dataloader = DataLoader(dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=0,
+           pin_memory=dataset_config["PIN_MEMORY"], collate_fn=data.dataset_collate_fn)
+# reset num_workers to dataset_config["WORKERS"]
+# put back prefetch_factor=dataset_config["PREFETCH_FACTOR"],
+# put back persistent_workers=True, 
 
 model_config["TOKENS"] = dataset.tokens()
 model_config["SRC_LEN"] = dataset.SRC_LEN
@@ -115,9 +117,11 @@ if args.mode == "train" or args.mode == "finetune":
 		val_dataset.dictionary.freeze_dict = False
 	val_dataset.buildDataset(args.validation)
 	val_dataset.device = device
-	val_dataloader = DataLoader(val_dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],
-           pin_memory=dataset_config["PIN_MEMORY"], prefetch_factor=dataset_config["PREFETCH_FACTOR"],
-           persistent_workers=True, collate_fn=data.dataset_collate_fn)
+	val_dataloader = DataLoader(val_dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=0,
+           pin_memory=dataset_config["PIN_MEMORY"], collate_fn=data.dataset_collate_fn)
+		   # reset num_workers to dataset_config["WORKERS"]
+		   # put back prefetch_factor=dataset_config["PREFETCH_FACTOR"],
+		   # put back persistent_workers=True, 
 
 	tb_writer = SummaryWriter(tb_log_path, comment=utils.config2comment(model_config, dataset_config))
 
@@ -214,8 +218,11 @@ elif args.mode == "test":
 				src_indicies = src_indicies.to(device)
 				tgt_indicies = tgt_indicies.to(device)
 				src_padding_mask = src_padding_mask.to(device)
+				
+				output = model.predict_recursive(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START], \
+					dataset.dictionary.word2idx[dataset.LOOP_CONTINUE], dataset.dictionary.word2idx[dataset.PADDING])
+				# output = model.predict(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START])
 				breakpoint()
-				output = model.predict_recursive(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START], dataset.dictionary.word2idx[dataset.LOOP_CONTINUE])
 
 				question_strings = [ q_str.split(dataset.PADDING)[0] for q_str in dataset.tensor2text(src_indicies)]
 				target_strings = [ tgt_str.split(dataset.END)[0] for tgt_str in dataset.tensor2text(tgt_indicies)]
@@ -231,4 +238,8 @@ elif args.mode == "test":
 					correct += (actual == pred)
 					total += 1
 				prog.update(dataloader.batch_size)
+				breakpoint()
 		print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100), file=f)
+
+if __name__ == '__main__':
+	freeze_support()

@@ -120,7 +120,7 @@ class FRT(nn.Module):
 		return output, tgt_indicies[1:, :]
 
 
-	def predict(self, src_indicies, src_padding_mask, start_token_index, loop_cont_index):
+	def predict(self, src_indicies, src_padding_mask, start_token_index):
 		#print(src_indicies)
 		src = self.embed(src_indicies)
 		src = self.src_pos_encoder(src)
@@ -161,9 +161,49 @@ class FRT(nn.Module):
 			#assert 0
 
 			#assert k == 0
-
 		return tgt_indicies
 	
-	def predict_recursive(self, src_indicies, src_padding_mask, start_token_index, loop_cont_index):
-		tgt_indicies = predict(src_indicies, src_padding_mask, start_token_index, loop_cont_index)
-		cont = torch.eq(tgt_indices, loop_cont_index)
+	def predict_recursive(self, src_indicies, src_padding_mask, start_token_index, loop_cont_index, padding_index):
+		"""
+		Runtime flags: 	--model-config config/frt_2-2.json 
+						--params checkpoints/FRT_2.2/FRT_2.2_epoch2_terminated.pt  
+						--dict output/dict/FRT_2.2_dict.json 
+						--mode test 
+						--data=deepmind_dataset/arithmetic__add_sub_multiple.tsv 
+						--dict=output/dict/FRT_2.2_dict.json
+		NOTE: Path to --data may be different.
+		"""
+		# First predict() call outside of while loop to get target length T to initialize output - messy implementation
+		tgt_indicies = self.predict(src_indicies, src_padding_mask, start_token_index)	
+		
+		# Dimension: N x T - transposed to T x N at the end
+		output = torch.zeros(tgt_indicies.shape[1], tgt_indicies.shape[0]).int().type(torch.LongTensor)
+		finished = []						# Indicies of samples that have LOOP_STOP
+		N = output.shape[0]					# Batch size
+
+		while(True):
+			tgt_indicies_trans = torch.transpose(tgt_indicies, 0, 1)			# N x T - for easier indexing by batch
+			cont = torch.eq(tgt_indicies_trans, float(loop_cont_index))	
+			mask = torch.tensor([1 if True in row else 0 for row in cont])
+
+			if not any(mask):				# mask contains all 0s
+				break
+
+			cont_indicies = torch.squeeze(torch.nonzero(mask), 1)				# Samples with LOOP_CONT
+			discont_indicies = [i for i in range(len(mask)) if mask[i] == 0]	# Samples with LOOP_STOP
+
+			for ind in discont_indicies:	# Add new finished samples to output - worried about being slow here
+				if ind not in finished:
+					output[ind] = tgt_indicies_trans[ind]
+					finished.append(ind)
+
+			src_indicies = tgt_indicies
+			src_padding_mask = torch.eq(tgt_indicies_trans, padding_index)		# TODO: Verify if this is correct
+
+			if len(finished) == N:			# All samples finished, avoid calling predict() again
+				break
+
+			tgt_indicies = self.predict(src_indicies, src_padding_mask, start_token_index)
+
+		output = torch.transpose(output, 0, 1)
+		return output
