@@ -153,10 +153,30 @@ class Dataset(Dataset):
         return src_indicies, tgt_indicies, self.steps[idx]
 
 
-
 def dataset_collate_fn(batch):
     src_indicies, tgt_indicies, steps = zip(*batch)
-    src_indicies = torch.cat(src_indicies, dim=1)
-    tgt_indicies = torch.cat(tgt_indicies, dim=1)
-    steps = max(steps)
+
+    if random.random() < 0.4:
+        src_indicies = torch.cat(src_indicies, dim=1)
+        tgt_indicies = torch.cat(tgt_indicies, dim=1)
+        steps = max(steps)
+    else:
+        split = {}
+        for i in range(len(steps)):
+            if i not in split:
+                split[i] = [[],[], 0]
+            split[i][0].append(src_indicies[i])
+            split[i][1].append(tgt_indicies[i])
+            split[i][2] += 1
+        more_frequent_step = None
+        step_frequency = 0
+        for key in split:
+            if split[key][2] >= step_frequency:
+                more_frequent_step = key
+                step_frequency = split[key][2]
+        assert more_frequent_step is not None, "Couldn't find most frequent step"
+        src_indicies = torch.cat((*split[more_frequent_step][0]), dim=1)
+        tgt_indicies = torch.cat((*split[more_frequent_step][1]), dim=1)
+        steps = more_frequent_step
+    
     return src_indicies, tgt_indicies, steps
