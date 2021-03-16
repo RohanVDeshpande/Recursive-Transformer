@@ -172,3 +172,81 @@ class WSRT(nn.Module):
 	# 	output = self.loop_lin(output)
 	# 	output = F.sigmoid(output)
 	# 	return output.view(-1)
+
+
+
+
+class WSRE(nn.Module):
+	""" Weakly Supervised Recursive Transformer """
+
+	def __init__(self, config):
+		super().__init__()
+		self.RANDOMIZE_HIDDEN_LEN = False
+		for key in config:
+			setattr(self, key, config[key])
+
+		assert self.TOKENS is not None
+		assert self.FEATURES is not None
+		assert self.HEADS is not None
+		assert self.ENC_LAYERS is not None
+		assert self.DEC_LAYERS is not None
+		assert self.FEED_FORWARD is not None
+		assert self.SRC_LEN is not None
+		assert self.TGT_LEN is not None
+		if self.RANDOMIZE_HIDDEN_LEN:
+			assert self.RANDOMIZE_HIDDEN_LEN_SCALE_FACTOR is not None, "'RANDOMIZE_HIDDEN_LEN_SCALE_FACTOR' must be set if 'RANDOMIZE_HIDDEN_LEN' is true"
+		if self.RANDOMIZE_STEPS:
+			assert self.RANDOMIZE_STEPS_SCALE_FACTOR is not None, "'RANDOMIZE_STEPS_SCALE_FACTOR' must be set if 'RANDOMIZE_STEPS' is true"
+
+		self.embed = nn.Embedding(self.TOKENS, self.FEATURES)
+		
+		# nn.Transformer parameters:
+		# d_model: int = 512,
+		# nhead: int = 8,
+		# num_encoder_layers: int = 6,
+		# num_decoder_layers: int = 6,
+		# dim_feedforward: int = 2048,
+		# dropout: float = 0.1,
+		# activation: str = 'relu'
+		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, \
+				 						  dim_feedforward=self.FEED_FORWARD, custom_decoder=CausalTransformerDecoder(
+				 						  			CausalTransformerDecoderLayer(d_model=self.FEATURES, nhead=self.HEADS, dim_feedforward=self.FEED_FORWARD),
+				 						  			self.DEC_LAYERS, torch.nn.LayerNorm(self.FEATURES))
+				 						  )
+
+		self.pos_encoder = PositionalEncoding(self.FEATURES)
+		self.lin_intermed = nn.Linear(self.FEATURES, self.FEATURES)		# should bias be disabled?
+		self.lin_out = nn.Linear(self.FEATURES, self.TOKENS)		# should bias be disabled?
+		self.log_softmax = nn.LogSoftmax()
+
+		# self.loop_predict_transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.LOOP_HEADS, num_encoder_layers=self.LOOP_ENC_LAYERS,
+		# 											   num_decoder_layers=self.LOOP_DEC_LAYERS, dim_feedforward=self.LOOP_FEED_FORWARD)
+		# self.loop_decoder_input = nn.Parameter(torch.ones(1, self.FEATURES), requires_grad=True)
+		# self.loop_lin = nn.Linear(self.FEATURES, 1)
+
+		self.apply(self._init_weights)
+		print("WSRT model has {} parameters".format(sum(p.numel() for p in self.parameters())))
+
+	def _init_weights(self, module):
+		if isinstance(module, nn.Embedding):
+			module.weight.data.normal_(mean=0.0, std=0.02)
+
+
+	def forward(self, src_indicies, tgt_indicies, tgt_padding_mask, numSteps):
+		memory = self.embed(src_indicies)
+		for i in range(numSteps):
+			memory = self.pos_encoder(memory)
+			self.transformer.encoder(memory)
+			memory = self.lin_intermed(memory)
+
+		tgt = self.embed(tgt_indicies)
+		tgt = self.pos_encoder(tgt)
+		tgt_mask = self.transformer.generate_square_subsequent_mask(self.TGT_LEN).to(self.device)
+		output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask,
+                              tgt_key_padding_mask=tgt_padding_mask)
+
+		output = output[:-1,:, :].view(-1, self.FEATURES)
+		output = self.lin_out(output)
+		output = self.log_softmax(output)
+
+		return output, tgt_indicies[1:, :]
