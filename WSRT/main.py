@@ -5,6 +5,7 @@ import os
 import sys
 import time
 import datetime
+import traceback
 
 import torch
 import torch.nn as nn
@@ -209,6 +210,7 @@ if args.mode == "train" or args.mode == "finetune":
 				checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_end.pt'.format(model_config["NAME"], epoch))
 				torch.save(model.state_dict(), checkpoint_path)
 	except:
+		traceback.print_exc() 
 		print('\n', '-' * 89)
 		print('Exiting from training early')
 		checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
