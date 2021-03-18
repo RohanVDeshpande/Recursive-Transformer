@@ -63,7 +63,12 @@ model_config["TGT_LEN"] = dataset.TGT_LEN
 if args.type == "frt":
 	model = frt.FRT(model_config)
 elif args.type == "wsrt":
-	model = wsrt.WSRT(model_config)
+
+	if "USE_WSRE" in model_config and model_config["USE_WSRE"]:
+		model = wsrt.WSRE(model_config)
+	else:
+		model_config["USE_WSRE"] = False
+		model = wsrt.WSRT(model_config)
 model.device = device
 model.to(device)
 
