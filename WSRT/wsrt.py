@@ -209,10 +209,7 @@ class WSRE(nn.Module):
 		# dropout: float = 0.1,
 		# activation: str = 'relu'
 		self.transformer = nn.Transformer(d_model=self.FEATURES, nhead=self.HEADS, num_encoder_layers=self.ENC_LAYERS, num_decoder_layers=self.DEC_LAYERS, \
-				 						  dim_feedforward=self.FEED_FORWARD, custom_decoder=CausalTransformerDecoder(
-				 						  			CausalTransformerDecoderLayer(d_model=self.FEATURES, nhead=self.HEADS, dim_feedforward=self.FEED_FORWARD),
-				 						  			self.DEC_LAYERS, torch.nn.LayerNorm(self.FEATURES))
-				 						  )
+				 						  dim_feedforward=self.FEED_FORWARD)
 
 		self.pos_encoder = PositionalEncoding(self.FEATURES)
 		self.lin_intermed = nn.Linear(self.FEATURES, self.FEATURES)		# should bias be disabled?
@@ -232,18 +229,17 @@ class WSRE(nn.Module):
 			module.weight.data.normal_(mean=0.0, std=0.02)
 
 
-	def forward(self, src_indicies, tgt_indicies, tgt_padding_mask, numSteps):
+	def forward(self, src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask, numSteps):
 		memory = self.embed(src_indicies)
 		for i in range(numSteps):
 			memory = self.pos_encoder(memory)
-			self.transformer.encoder(memory)
+			memory = self.transformer.encoder(memory, src_key_padding_mask=src_padding_mask)
 			memory = self.lin_intermed(memory)
 
 		tgt = self.embed(tgt_indicies)
 		tgt = self.pos_encoder(tgt)
 		tgt_mask = self.transformer.generate_square_subsequent_mask(self.TGT_LEN).to(self.device)
-		output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask,
-                              tgt_key_padding_mask=tgt_padding_mask)
+		output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask, memory_key_padding_mask=src_padding_mask)
 
 		output = output[:-1,:, :].view(-1, self.FEATURES)
 		output = self.lin_out(output)
