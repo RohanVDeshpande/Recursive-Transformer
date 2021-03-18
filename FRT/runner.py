@@ -59,9 +59,6 @@ def testRecursive(model, dataset, prediction_path):
 		with tqdm(total=len(dataset)) as prog:
 			while True:
 				current_idx = fill_working_set(working_set, working_set_idx, proof_of_work, current_idx)
-				# print(proof_of_work)
-				# print(current_idx)
-				# print(working_set_idx)
 
 				src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask = data.dataset_collate_fn(working_set)
 				src_indicies = src_indicies.to(model.device)
@@ -75,27 +72,16 @@ def testRecursive(model, dataset, prediction_path):
 					question = dataset.questions[working_set_idx[i]].split(dataset.PADDING)[0]
 					actual = dataset.answers[working_set_idx[i]].split(dataset.END)[0]
 					proof_of_work[i].append(prediction)
-					# print(proof_of_work)
-					# print(question)
-					# print(prediction)
-					# print(actual)
-					
-					if prediction[-2] == dataset.TGT_LOOP_SEP and prediction[-1] == dataset.LOOP_CONTINUE:
-						prediction = prediction[:-2] + dataset.END
-						# print("Continuing")
+					if prediction[-2] == dataset.TGT_LOOP_SEP and prediction[-1] == dataset.LOOP_CONTINUE and len(proof_of_work[i]) <= 30:
 						# swap output -> src for next thinking step
+						prediction = prediction[:-2] + dataset.END
 						assert len(prediction) <= dataset.TGT_LEN, "Prediction length cannot be greater than TGT_LEN"
-						assert len(proof_of_work[i]) <= 10, "Cannot use more than 10 thinking steps!"
 						prediction += (dataset.TGT_LEN - len(prediction)) * dataset.PADDING
 						# print(prediction)
 						tmp = dataset.text2tensor(prediction).view(-1, 1)
 						working_set[i] = (tmp, torch.eq(tmp, dataset.dictionary.word2idx[dataset.PADDING]).view(1, -1), working_set[i][2], working_set[i][3])
 					else:
-						# print("Stopping")
-						# finished thinking. compare solution to actual
-						# question = dataset.questions[working_set_idx[i]].split(dataset.PADDING)[0]
-						# actual = dataset.answers[working_set_idx[i]].split(dataset.END)[0]
-
+						# model has finished the current problem. log solution & proof of work to file
 						print("Q: {} , A: {}".format(question, actual), file=f)
 						for j in range(len(proof_of_work[i])):
 							print("Step {}: {}".format(j+1, proof_of_work[i][j]), file=f)
@@ -109,5 +95,7 @@ def testRecursive(model, dataset, prediction_path):
 
 				if current_idx >= len(dataset) and len(working_set) == 0:
 					break
+
+			print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100), file=f)
 
 	dataset.BATCH_SIZE = batch_size
