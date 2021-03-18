@@ -148,39 +148,20 @@ class Dataset(Dataset):
 
     def __getitem__(self, idx):
         src_indicies = self.text2tensor(self.questions[idx]).view(-1, 1)
+        src_padding_mask = torch.eq(src_indicies, self.dictionary.word2idx[self.PADDING]).view(1, -1)
         #print(src_indicies.shape)
         tgt_indicies = self.text2tensor(self.answers[idx]).view(-1, 1)
         tgt_padding_mask = torch.eq(tgt_indicies, self.dictionary.word2idx[self.PADDING]).view(1, -1)
-        return src_indicies, tgt_indicies, tgt_padding_mask, self.steps[idx]
+        return src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask, self.steps[idx]
 
 
 def dataset_collate_fn(batch):
-    src_indicies, tgt_indicies, tgt_padding_mask, steps = zip(*batch)
+    src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask, steps = zip(*batch)
+    src_padding_mask = torch.cat(src_padding_mask)
 
-    if random.random() < 0.4:
-        src_indicies = torch.cat(src_indicies, dim=1)
-        tgt_indicies = torch.cat(tgt_indicies, dim=1)
-        tgt_padding_mask = torch.cat(tgt_padding_mask)
-        steps = max(steps)
-    else:
-        split = {}
-        for i in range(len(steps)):
-            if steps[i] not in split:
-                split[steps[i]] = [[],[],[], 0]
-            split[steps[i]][0].append(src_indicies[i])
-            split[steps[i]][1].append(tgt_indicies[i])
-            split[steps[i]][2].append(tgt_padding_mask[i])
-            split[steps[i]][3] += 1
-        more_frequent_step = None
-        step_frequency = 0
-        for key in split:
-            if split[key][3] >= step_frequency:
-                more_frequent_step = key
-                step_frequency = split[key][3]
-        assert more_frequent_step is not None, "Couldn't find most frequent step"
-        src_indicies = torch.cat(split[more_frequent_step][0], dim=1)
-        tgt_indicies = torch.cat(split[more_frequent_step][1], dim=1)
-        tgt_padding_mask = torch.cat(split[more_frequent_step][2])
-        steps = more_frequent_step
+    src_indicies = torch.cat(src_indicies, dim=1)
+    tgt_indicies = torch.cat(tgt_indicies, dim=1)
+    tgt_padding_mask = torch.cat(tgt_padding_mask)
+    steps = 2
     
-    return src_indicies, tgt_indicies, tgt_padding_mask, steps
+    return src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask, steps

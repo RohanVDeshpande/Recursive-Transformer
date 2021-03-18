@@ -126,9 +126,7 @@ if args.mode == "train" or args.mode == "finetune":
 		optimizer = optim.Adam(model.parameters(), lr=model_config["LR"])
 	elif model_config["OPTIMIZER"] == "ADAMW":
 		optimizer = optim.AdamW(model.parameters(), lr=model_config["LR"])
-	token_weights = torch.ones(model_config["TOKENS"], device=device)
-	token_weights[dataset.dictionary.word2idx[dataset.PADDING]] = 0.02
-	criterion = nn.NLLLoss(weight=token_weights)
+	criterion = nn.NLLLoss(ignore_index=dataset.dictionary.word2idx[dataset.PADDING])
 	scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=model_config["LR_SCHEDULER_DECAY"], verbose=True)
 
 	EPOCHS = 3 if args.dry_run else model_config["EPOCHS"]
@@ -144,7 +142,7 @@ if args.mode == "train" or args.mode == "finetune":
 				update_time = AverageMeter()
 
 				batch_start_time = time.time()
-				for i, (src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(dataloader):
+				for i, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(dataloader):
 					if model.RANDOMIZE_STEPS:
 						WSRT_steps = random.randint(WSRT_steps, int(WSRT_steps * model.RANDOMIZE_STEPS_SCALE_FACTOR))
 					# print(WSRT_steps)
@@ -157,6 +155,7 @@ if args.mode == "train" or args.mode == "finetune":
 						break
 
 					src_indicies = src_indicies.to(device)
+					src_padding_mask = src_padding_mask.to(device)
 					tgt_indicies = tgt_indicies.to(device)
 					tgt_padding_mask = tgt_padding_mask.to(device)
 
@@ -166,7 +165,7 @@ if args.mode == "train" or args.mode == "finetune":
 
 					optimizer.zero_grad()
 					if model_config["USE_WSRE"]:
-						output, tgt = model(src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps)
+						output, tgt = model(src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask, WSRT_steps)
 					else:
 						output, tgt = model(src_indicies, tgt_indicies, WSRT_steps, dataset.dictionary.word2idx[dataset.START], dataset.dictionary.word2idx[dataset.END], tgt_indicies.shape[0])
 					# print(output)
@@ -192,18 +191,19 @@ if args.mode == "train" or args.mode == "finetune":
 							epoch_val_loss = 0
 							with tqdm(total=len(val_dataset)) as val_prog:
 								val_prog.set_description("Validating")
-								for j, (src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(val_dataloader):
+								for j, (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask, WSRT_steps) in enumerate(val_dataloader):
 									if (args.dry_run and j == 1):
 										# 'dry run' only runs 1 epoch with 5 bathes
 										break
 									if model.RANDOMIZE_STEPS:
 										WSRT_steps = random.randint(WSRT_steps, int(WSRT_steps * model.RANDOMIZE_STEPS_SCALE_FACTOR))
 									src_indicies = src_indicies.to(device)
+									src_padding_mask = src_padding_mask.to(device)
 									tgt_indicies = tgt_indicies.to(device)
 									tgt_padding_mask = tgt_padding_mask.to(device)
 
 									if model_config["USE_WSRE"]:
-										output, tgt = model(src_indicies, tgt_indicies, tgt_padding_mask, WSRT_steps)
+										output, tgt = model(src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask, WSRT_steps)
 									else:
 										output, tgt = model(src_indicies, tgt_indicies, WSRT_steps, dataset.dictionary.word2idx[dataset.START], dataset.dictionary.word2idx[dataset.END], tgt_indicies.shape[0])
 									loss = criterion(output, tgt.view(-1))
