@@ -16,6 +16,7 @@ import torch.optim as optim
 import argparse
 import frt
 
+import runner
 import data
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
@@ -38,6 +39,7 @@ parser.add_argument('--params', type=str, help='Model params path for finetuning
 parser.add_argument('--dict', type=str, help='Dictionary path for finetuning or testing')
 parser.add_argument('--dry-run', action='store_true', help='enable dry run, one or two batches')
 parser.add_argument('--logdir', type=str, help='TensorBoard logging directory', default='tb')
+parser.add_argument('--test-type', type=str, choices=["step", "recursive"])
 
 args = parser.parse_args()
 
@@ -53,6 +55,7 @@ if args.mode == 'finetune':
 	assert args.params, "You need to provide a params path (--params) for finetuning"
 if args.mode == 'testing':
 	assert args.params, "You need to provide a params path (--params) for testing"
+	assert args.test_type, "You need to provide test type (--test-type) for testing"
 
 # Set the random seed manually for reproducibility.
 # torch.manual_seed(args.seed)
@@ -208,29 +211,7 @@ elif args.mode == "test":
 	model.load_state_dict(torch.load(args.params, map_location=torch.device(device)))
 	model.eval()
 
-	correct = 0
-	total = 0
-
-	with open(prediction_path, "w") as f:
-		with tqdm(total=len(dataset)) as prog:
-			for (src_indicies, src_padding_mask, tgt_indicies, tgt_padding_mask) in dataloader:
-				src_indicies = src_indicies.to(device)
-				tgt_indicies = tgt_indicies.to(device)
-				src_padding_mask = src_padding_mask.to(device)
-				output = model.predict(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START])
-
-				question_strings = [ q_str.split(dataset.PADDING)[0] for q_str in dataset.tensor2text(src_indicies)]
-				target_strings = [ tgt_str.split(dataset.END)[0] for tgt_str in dataset.tensor2text(tgt_indicies)]
-				output_strings = [ out_str.split(dataset.END)[0] for out_str in dataset.tensor2text(output)]
-
-				for j in range(len(target_strings)):
-					question = question_strings[j]
-					pred = output_strings[j]
-					actual = target_strings[j]
-
-					print("Q: {} , A: {}".format(question, actual), file=f)
-					print("Got: '{}' {}\n".format(pred, "correct" if actual == pred else "wrong"), file=f)
-					correct += (actual == pred)
-					total += 1
-				prog.update(dataloader.batch_size)
-		print("{} Correct out of {} total. {:.3f}% accuracy".format(correct, total, correct/total * 100), file=f)
+	if args.test_type == "step":
+		runner.test(model, dataloader, dataset, prediction_path)
+	elif args.test_type == "recursive":
+		runner.testRecursive(model, dataset, prediction_path)
