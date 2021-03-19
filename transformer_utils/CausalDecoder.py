@@ -23,6 +23,38 @@ class CausalTransformerDecoder(nn.TransformerDecoder):
         self,
         tgt: Tensor,
         memory: Optional[Tensor] = None,
+        tgt_mask: Optional[Tensor] = None,
+        memory_mask: Optional[Tensor] = None,
+        tgt_key_padding_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+    ) -> Tensor:
+        """
+        Args:
+            tgt (Tensor): current_len_output x bsz x hidden_dim
+            memory (Tensor): len_encoded_seq x bsz x hidden_dim
+            others (Optional[Tensor]): see official documentations
+        Returns:
+            output (Tensor): current_len_output x bsz x hidden_dim
+        """
+        # print("CausalTransformerDecoder forward")
+        output = tgt
+
+        for mod in self.layers:
+            output = mod(
+                output,
+                memory,
+                tgt_mask=tgt_mask,
+                memory_mask=memory_mask,
+                tgt_key_padding_mask=tgt_key_padding_mask,
+                memory_key_padding_mask=memory_key_padding_mask,
+            )
+
+        return output
+
+    def predict(
+        self,
+        tgt: Tensor,
+        memory: Optional[Tensor] = None,
         cache: Optional[Tensor] = None,
         tgt_mask: Optional[Tensor] = None,
         memory_mask: Optional[Tensor] = None,
@@ -43,27 +75,12 @@ class CausalTransformerDecoder(nn.TransformerDecoder):
             cache (Optional[Tensor]): n_layers x current_len_output x bsz x hidden_dim
                 Only returns it when module is in eval mode (no caching in training)
         """
-
+        # print("CausalTransformerDecoder predict")
         output = tgt
-
-        if self.training:
-            if cache is not None:
-                raise ValueError("cache parameter should be None in training mode")
-            for mod in self.layers:
-                output = mod(
-                    output,
-                    memory,
-                    tgt_mask=tgt_mask,
-                    memory_mask=memory_mask,
-                    tgt_key_padding_mask=tgt_key_padding_mask,
-                    memory_key_padding_mask=memory_key_padding_mask,
-                )
-
-            return output
 
         new_token_cache = []
         for i, mod in enumerate(self.layers):
-            output = mod(output, memory)
+            output = mod.predict(output, memory)
             new_token_cache.append(output)
             if cache is not None:
                 output = torch.cat([cache[i], output], dim=0)
@@ -91,22 +108,40 @@ class CausalTransformerDecoderLayer(nn.TransformerDecoderLayer):
             see CausalTransformerDecoder
         Returns:
             Tensor:
-                If training: embedding of the whole layer: seq_len x bsz x hidden_dim
-                If eval mode: embedding of last token: 1 x bsz x hidden_dim
+                embedding of the whole layer: seq_len x bsz x hidden_dim
         """
+        # print("CausalTransformerDecoderLayer forward")
+        return super().forward(
+            tgt,
+            memory,
+            tgt_mask=tgt_mask,
+            memory_mask=memory_mask,
+            tgt_key_padding_mask=tgt_key_padding_mask,
+            memory_key_padding_mask=memory_key_padding_mask,
+        )
 
-        if self.training:
-            return super().forward(
-                tgt,
-                memory,
-                tgt_mask=tgt_mask,
-                memory_mask=memory_mask,
-                tgt_key_padding_mask=tgt_key_padding_mask,
-                memory_key_padding_mask=memory_key_padding_mask,
-            )
+
+    def predict(
+        self,
+        tgt: Tensor,
+        memory: Optional[Tensor] = None,
+        tgt_mask: Optional[Tensor] = None,
+        memory_mask: Optional[Tensor] = None,
+        tgt_key_padding_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+    ) -> Tensor:
+        """
+        Args:
+            see CausalTransformerDecoder
+        Returns:
+            Tensor:
+                embedding of last token: 1 x bsz x hidden_dim
+        """
 
         # This part is adapted from the official Pytorch implementation
         # So that only the last token gets modified and returned.
+
+        # print("CausalTransformerDecoderLayer predict")
 
         tgt_last_tok = tgt[-1:, :, :]
 

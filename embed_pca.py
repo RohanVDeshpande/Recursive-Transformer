@@ -2,7 +2,6 @@ import math
 import random
 from termcolor import colored
 import json
-import utils
 import os
 import sys
 
@@ -10,16 +9,20 @@ import numpy as np
 import torch
 import torch.nn as nn
 import argparse
-import frt
-
-import data
 
 from sklearn.decomposition import PCA
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 
+from FRT import utils
+from FRT import data
+from FRT import frt
+from WSRT import wsrt
 
 parser = argparse.ArgumentParser(description='Forced Recursive Transformer')
+parser.add_argument('--type', type=str, required=True,
+                    help="Model Type",
+					choices=["frt", "wsrt"])
 parser.add_argument('--model-config', type=str, required=True,
                     help='Model json config')
 parser.add_argument('--params', type=str, required=True, help='Model path')
@@ -68,11 +71,14 @@ model_config["TOKENS"] = dataset.tokens()
 model_config["SRC_LEN"] = dataset.SRC_LEN
 model_config["TGT_LEN"] = dataset.TGT_LEN
 
-model = frt.FRT(model_config)
+if args.type == "frt":
+	model = frt.FRT(model_config)
+elif args.type == "wsrt":
+	model = wsrt.WSRT(model_config)
 model.device = device
 model.to(device)
 
-model.load_state_dict(torch.load(args.params, map_location=torch.device(device)))
+model.load_state_dict(torch.load(args.params, map_location=torch.device(device)), strict=False)
 model.eval()
 
 
@@ -122,7 +128,7 @@ if args.dims == 2:
 		else:
 			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, dataset.dictionary.idx2word[i])
 	fig.set_size_inches(8,6)
-	fig.savefig("output/{}_embedding_pca_2d.png".format(model_config["NAME"]))
+	fig.savefig("output/{}_embedding_pca_2d{}.png".format(model_config["NAME"], "_numonly" if args.num_only else ""))
 elif args.dims == 3:
 	fig = plt.figure()
 	ax = fig.add_subplot(111, projection='3d')
@@ -156,6 +162,6 @@ elif args.dims == 3:
 
 	if args.gif:
 		anim = FuncAnimation(fig, update, frames=range(0, 360), interval=150)
-		anim.save("output/{}_embedding_pca_3d.gif".format(model_config["NAME"]), dpi=80, writer='imagemagick')
+		anim.save("output/{}_embedding_pca_3d{}.gif".format(model_config["NAME"], "_numonly" if args.num_only else ""), dpi=80, writer='imagemagick')
 	else:
-		fig.savefig("output/{}_embedding_pca_3d.png".format(model_config["NAME"]))
+		fig.savefig("output/{}_embedding_pca_3d{}.png".format(model_config["NAME"], "_numonly" if args.num_only else ""))

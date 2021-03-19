@@ -1,0 +1,14 @@
+{
+	"NAME": "WSRT_2.1-random-step-lowerLR",
+	"FEATURES" : 128,
+	"HEADS" : 8,
+	"ENC_LAYERS" : 6,
+	"DEC_LAYERS" : 6,
+	"FEED_FORWARD" : 256,
+	"OPTIMIZER": "ADAMW",
+	"LR": 0.0002,
+	"EPOCHS": 1000,
+	"RANDOMIZE_STEPS": true,
+	"RANDOMIZE_STEPS_SCALE_FACTOR": 2.0,
+	"DATASET_CONFIG": "config/dataset_wsrt2-1.json"
+}

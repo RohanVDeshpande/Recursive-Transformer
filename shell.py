@@ -1,29 +1,24 @@
 import math
 import random
-from termcolor import colored
 import json
-import utils
-from utils import AverageMeter
 import os
 import sys
 import time
 import datetime
+from termcolor import colored
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 import argparse
-import frt
 
-import data
-from tqdm import tqdm
-from torch.utils.tensorboard import SummaryWriter
-
-from torch.utils.data import DataLoader
-
+from FRT import data
+from FRT import frt
+from WSRT import wsrt
 
 parser = argparse.ArgumentParser(description='Forced Recursive Transformer')
+parser.add_argument('--type', type=str, required=True,
+                    help="Model Type",
+					choices=["frt", "wsrt"])
 parser.add_argument('--model-config', type=str, required=True,
                     help='Model json config')
 parser.add_argument('--cuda', action='store_true',
@@ -65,7 +60,10 @@ model_config["TOKENS"] = dataset.tokens()
 model_config["SRC_LEN"] = dataset.SRC_LEN
 model_config["TGT_LEN"] = dataset.TGT_LEN
 
-model = frt.FRT(model_config)
+if args.type == "frt":
+	model = frt.FRT(model_config)
+elif args.type == "wsrt":
+	model = wsrt.WSRT(model_config)
 model.device = device
 model.to(device)
 
@@ -89,13 +87,16 @@ try:
 			output = model.predict(src_indicies, None, dataset.dictionary.word2idx[dataset.START])
 			# print(output)
 			# print(output.shape)
-			output_string = dataset.tensor2text(output.view(-1)).split(dataset.END)[0]
-			loop_flag = "Error"
-			out = output_string[1:].split(dataset.TGT_LOOP_SEP)
-			if len(out) > 1 and out[1] == dataset.LOOP_STOP:
-				loop_flag = "Stop"
-			elif len(out) > 1 and out[1] == dataset.LOOP_CONTINUE:
-				loop_flag = "Continue"
-			print(" ", colored(out[0], "blue"), "\t\t\tLoop flag: {}".format(loop_flag))
+			output_string = dataset.tensor2text(output.view(-1))   # .split(dataset.END)[0]
+			if args.type == "frt":
+				loop_flag = "Error"
+				out = output_string[1:].split(dataset.TGT_LOOP_SEP)
+				if len(out) > 1 and out[1] == dataset.LOOP_STOP:
+					loop_flag = "Stop"
+				elif len(out) > 1 and out[1] == dataset.LOOP_CONTINUE:
+					loop_flag = "Continue"
+				print(" ", colored(out[0], "blue"), "\t\t\tLoop flag: {}".format(loop_flag))
+			else:
+				print(" ", colored(output_string, "blue"))
 except:
 	print("\nExiting shell.")
