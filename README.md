@@ -1,4 +1,4 @@
-# Recurrent Transformer
+# Recursive Transformer
 
 A novel neural architecture for generalizable mathematical reasoning.
 
@@ -31,8 +31,11 @@ correct
 ```
  > Token Key: start 'श', end 'क', marked sub-problem start '始', marked sub-problem end '終', loop continue 'ㅇ', loop end 'ㅣ'
 
+### Visualization of Forced Recurrent Transformer Embeddings via PCA
 ![Forced Reccurent Transformer Embeddings](figures/FRT_embedding_pca.gif "Visualization of Forced Recurrent Transformer Embeddings via PCA")
 
+### Visualization of Forced Recurrent Transformer Attention (marking step)
 ![Forced Reccurent Transformer Attention Visualization](figures/FRT_3.2_attention_viz_mark.png "Visualization of Forced Recurrent Transformer Attention (marking step)")
 
+### Visualization of Forced Recurrent Transformer Attention (reduction step)
 ![Forced Reccurent Transformer Attention Visualization](figures/FRT_3.2_attention_viz_reduction.png "Visualization of Forced Recurrent Transformer Attention (reduction step)")
