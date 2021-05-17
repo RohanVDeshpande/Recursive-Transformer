@@ -2,6 +2,7 @@ import os
 from io import open
 import torch
 import math
+import random
 import copy
 from torch.utils.data import Dataset, DataLoader
 import json
@@ -82,6 +83,32 @@ class Dataset(Dataset):
         a += (self.TGT_LEN - len(a)) * self.PADDING
         return a
 
+    def tokenizeQA(self, q, a, done):
+    	q = self.START + q + self.END
+    	q_padding = self.SRC_LEN - len(q)
+    	assert q_padding >= 0, "Q length is {} but SRC_LEN={}".format(len(q), self.SRC_LEN)
+
+    	a = self.START + a
+        a += self.TGT_LOOP_SEP
+        if done == "1":
+            a += self.LOOP_STOP
+        elif done == "0":
+            a += self.LOOP_CONTINUE
+        else:
+            assert 0, "Dataset object encountered undefined variable: done={}".format(done)
+        a += self.END
+        a_padding = self.TGT_LEN - len(a)
+        assert a_padding >= 0, "A length is {} but TGT_LEN={}".format(len(a), self.TGT_LEN)
+
+        max_left_padding = min(q_padding, a_padding)		# max amount of padding we can add to the left
+        left_padding = random.randint(0, max_left_padding)  # both question & answer get padded by same amount on the left side
+
+        q = left_padding * self.PADDING + q + (q_padding - left_padding) * self.PADDING
+        a = left_padding * self.PADDING + a + (a_padding - left_padding) * self.PADDING
+
+        return q, a
+
+
     def populateDictionary(self, text):
         for c in text:
             self.dictionary.add_word(c)
@@ -114,7 +141,7 @@ class Dataset(Dataset):
                 for line in f:
                     l = line.strip().split('\t')
                     # print(f'l = {l}')
-                    q, a, = self.tokenizeQuestion(l[0]), self.tokenizeAnswer(l[1], l[2])
+                    q, a = self.tokenizeQA(l[0], l[1], l[2])
                     self.questions.append(q)
                     self.answers.append(a)
                     #self.types.append(l[3])        # unneeded right now
@@ -125,7 +152,7 @@ class Dataset(Dataset):
             for line in path_or_array:
                 l = line.strip().split('\t')
                 # print(f'l = {l}')
-                q, a, = self.tokenizeQuestion(l[0]), self.tokenizeAnswer(l[1], l[2])
+                q, a = self.tokenizeQA(l[0], l[1], l[2])
                 self.questions.append(q)
                 self.answers.append(a)
                 #self.types.append(l[3])        # unneeded right now
