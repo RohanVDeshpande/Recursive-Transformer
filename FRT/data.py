@@ -33,6 +33,7 @@ class Dataset(Dataset):
         self.sources = []
         self.device = "cpu"     # default device
         self.TOTAL_TOKENS = None    # manually set number of tokens
+        self.RANDOMIZE_LEFT_PADDING = False
 
         if isinstance(config, dict):
             self.dictionary = Dictionary()
@@ -52,6 +53,7 @@ class Dataset(Dataset):
             self.LOOP_STOP = config.LOOP_STOP
             self.BATCH_SIZE = config.BATCH_SIZE
             self.TOTAL_TOKENS = config.TOTAL_TOKENS
+            self.RANDOMIZE_LEFT_PADDING = config.RANDOMIZE_LEFT_PADDING
 
         assert self.START is not None
         assert self.SRC_LEN is not None
@@ -63,25 +65,6 @@ class Dataset(Dataset):
         assert self.LOOP_STOP is not None
         assert self.BATCH_SIZE is not None
 
-    def tokenizeQuestion(self, q):
-        q = self.START + q + self.END
-        assert self.SRC_LEN - len(q) >= 0, "Q length is {} but SRC_LEN={}".format(len(q), self.SRC_LEN)
-        q += (self.SRC_LEN - len(q)) * self.PADDING
-        return q
-
-    def tokenizeAnswer(self, a, done):
-        a = self.START + a
-        a += self.TGT_LOOP_SEP
-        if done == "1":
-            a += self.LOOP_STOP
-        elif done == "0":
-            a += self.LOOP_CONTINUE
-        else:
-            assert 0, "Dataset object encountered undefined variable: done={}".format(done)
-        a += self.END
-        assert self.TGT_LEN - len(a) >= 0, "A length is {} but TGT_LEN={}".format(len(a), self.TGT_LEN)
-        a += (self.TGT_LEN - len(a)) * self.PADDING
-        return a
 
     def tokenizeQA(self, q, a, done):
     	q = self.START + q + self.END
@@ -100,8 +83,11 @@ class Dataset(Dataset):
         a_padding = self.TGT_LEN - len(a)
         assert a_padding >= 0, "A length is {} but TGT_LEN={}".format(len(a), self.TGT_LEN)
 
-        max_left_padding = min(q_padding, a_padding)		# max amount of padding we can add to the left
-        left_padding = random.randint(0, max_left_padding)  # both question & answer get padded by same amount on the left side
+        if self.RANDOMIZE_LEFT_PADDING:
+	        max_left_padding = min(q_padding, a_padding)		# max amount of padding we can add to the left
+	        left_padding = random.randint(0, max_left_padding)  # both question & answer get padded by same amount on the left side
+	    else:
+	    	left_padding = 0
 
         q = left_padding * self.PADDING + q + (q_padding - left_padding) * self.PADDING
         a = left_padding * self.PADDING + a + (a_padding - left_padding) * self.PADDING
