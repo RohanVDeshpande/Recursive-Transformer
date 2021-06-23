@@ -2,8 +2,8 @@ import math
 import random
 from termcolor import colored
 import json
-import utils
-from utils import AverageMeter
+from . import utils
+from .utils import AverageMeter
 import os
 import sys
 import time
@@ -14,10 +14,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import argparse
-import frt
+from . import frt
+from . import runner
+from . import data
 
-import runner
-import data
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 

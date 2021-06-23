@@ -1,4 +1,4 @@
-import data
+from . import data
 from tqdm import tqdm
 import torch
 
