@@ -139,7 +139,8 @@ if args.mode == "train" or args.mode == "finetune":
 	weights[dataset.dictionary.word2idx[dataset.START1]] = 0
 	weights[dataset.dictionary.word2idx[dataset.START2]] = 0
 	weights[dataset.dictionary.word2idx[dataset.PADDING]] = 0
-	
+	weights = weights.to(device)
+
 	criterion = nn.NLLLoss(weight=weights)
 	scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=model_config["LR_SCHEDULER_DECAY"], verbose=True)
 

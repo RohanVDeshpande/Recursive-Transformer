@@ -8,7 +8,7 @@
   "PADDING": "ह",
   "SRC_LEN": 64,
   "TGT_LEN": 64,
-  "BATCH_SIZE": 32,
+  "BATCH_SIZE": 64,
   "SHUFFLE": true,
   "WORKERS": 4,
   "PIN_MEMORY": false,
