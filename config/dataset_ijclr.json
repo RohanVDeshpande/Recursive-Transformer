@@ -1,0 +1,18 @@
+{
+  "START1": "श",
+  "START2": "र",
+  "TGT_LOOP_SEP": "ळ",
+  "LOOP_STOP": "ㅣ",
+  "LOOP_CONTINUE": "ㅇ",
+  "END": "क",
+  "PADDING": "ह",
+  "SRC_LEN": 64,
+  "TGT_LEN": 64,
+  "BATCH_SIZE": 32,
+  "SHUFFLE": true,
+  "WORKERS": 4,
+  "PIN_MEMORY": false,
+  "PREFETCH_FACTOR": 4,
+  "TOTAL_TOKENS": 32,
+  "RANDOMIZE_LEFT_PADDING": true
+}

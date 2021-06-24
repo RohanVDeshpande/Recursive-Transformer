@@ -78,15 +78,16 @@ class FRT(nn.Module):
 		return output, tgt_indicies[1:, :]
 
 
-	def predict(self, src_indicies, src_padding_mask, start_token_index):
+	def predict(self, src_indicies, src_padding_mask, start_token_index1, start_token_index2):
 		#print(src_indicies)
 		src = self.embed(src_indicies)
 		src = self.src_pos_encoder(src)
 		memory = self.transformer.encoder(src, src_key_padding_mask=src_padding_mask)
 
-		tgt_indicies = torch.full((1, src_indicies.shape[1]), start_token_index, dtype=torch.long, device=self.device)		# (1, N)
-		#print(tgt_indicies.shape)
-		#tgt = torch.full((1, src_indicies.shape[1], self.FEATURES), start_token_index)	# (1, N, E)
+		tgt_indicies = torch.cat(torch.full((1, src_indicies.shape[1]), start_token_index1, dtype=torch.long, device=self.device),
+								 torch.full((1, src_indicies.shape[1]), start_token_index2, dtype=torch.long, device=self.device)
+								)		# (2, N)
+
 		cache = None
 		# tgt_key_padding_mask=???
 		steps = round(1.5 * self.TGT_LEN)

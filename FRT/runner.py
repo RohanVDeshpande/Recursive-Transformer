@@ -12,7 +12,7 @@ def test(model, dataloader, dataset, prediction_path):
 				src_indicies = src_indicies.to(model.device)
 				tgt_indicies = tgt_indicies.to(model.device)
 				src_padding_mask = src_padding_mask.to(model.device)
-				output = model.predict(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START])
+				output = model.predict(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START1], dataset.dictionary.word2idx[dataset.START2])
 
 				question_strings = [ q_str.split(dataset.PADDING)[0] for q_str in dataset.tensor2text(src_indicies)]
 				target_strings = [ tgt_str.split(dataset.END)[0] for tgt_str in dataset.tensor2text(tgt_indicies)]
@@ -65,7 +65,7 @@ def testRecursive(model, dataset, prediction_path):
 				src_padding_mask = src_padding_mask.to(model.device)
 				tgt_indicies = tgt_indicies.to(model.device)
 
-				output = model.predict(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START])
+				output = model.predict(src_indicies, src_padding_mask, dataset.dictionary.word2idx[dataset.START1], dataset.dictionary.word2idx[dataset.START2])
 
 				for i in range(len(working_set)-1, -1, -1):
 					prediction = dataset.tensor2text(output[:, i]).split(dataset.END)[0]

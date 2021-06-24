@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import datetime
+import traceback
 
 import torch
 import torch.nn as nn
@@ -119,6 +120,8 @@ if args.mode == "train" or args.mode == "finetune":
 	if args.mode == "finetune":
 		print('unfreezing validation set for finetune')
 		val_dataset.dictionary.freeze_dict = False
+	else:
+		dataset.saveDictionary(dictionary_out_path)
 	val_dataset.buildDataset(args.validation)
 	val_dataset.device = device
 	val_dataloader = DataLoader(val_dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],
@@ -131,7 +134,13 @@ if args.mode == "train" or args.mode == "finetune":
 		optimizer = optim.Adam(model.parameters(), lr=model_config["LR"])
 	elif model_config["OPTIMIZER"] == "ADAMW":
 		optimizer = optim.AdamW(model.parameters(), lr=model_config["LR"])
-	criterion = nn.NLLLoss(ignore_index=dataset.dictionary.word2idx[dataset.PADDING])
+	
+	weights = torch.ones(model.TOKENS)
+	weights[dataset.dictionary.word2idx[dataset.START1]] = 0
+	weights[dataset.dictionary.word2idx[dataset.START2]] = 0
+	weights[dataset.dictionary.word2idx[dataset.PADDING]] = 0
+	
+	criterion = nn.NLLLoss(weight=weights)
 	scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=model_config["LR_SCHEDULER_DECAY"], verbose=True)
 
 	EPOCHS = 1 if args.dry_run else model_config["EPOCHS"]
@@ -204,7 +213,9 @@ if args.mode == "train" or args.mode == "finetune":
 		print('Exiting from training early')
 		checkpoint_path = os.path.join(checkpoint_dir, '{}_epoch{}_terminated.pt'.format(model_config["NAME"], epoch))
 		torch.save(model.state_dict(), checkpoint_path)
-	dataset.saveDictionary(dictionary_out_path)
+		traceback.print_exc()
+		print("Training killed")
+	
 
 elif args.mode == "test":
 	assert args.params is not None, "Model params path not set up"

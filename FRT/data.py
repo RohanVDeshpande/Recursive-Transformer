@@ -43,7 +43,8 @@ class Dataset(Dataset):
             self.dictionary = copy.deepcopy(config.dictionary)
             self.dictionary.freeze_dict = True
             print("Using existing dictionary to initialize new dataset object", self.dictionary.idx2word)
-            self.START = config.START
+            self.START1 = config.START1
+            self.START2 = config.START2
             self.SRC_LEN = config.SRC_LEN
             self.TGT_LEN = config.TGT_LEN
             self.PADDING = config.PADDING
@@ -55,7 +56,8 @@ class Dataset(Dataset):
             self.TOTAL_TOKENS = config.TOTAL_TOKENS
             self.RANDOMIZE_LEFT_PADDING = config.RANDOMIZE_LEFT_PADDING
 
-        assert self.START is not None
+        assert self.START1 is not None
+        assert self.START2 is not None
         assert self.SRC_LEN is not None
         assert self.TGT_LEN is not None
         assert self.PADDING is not None
@@ -67,11 +69,11 @@ class Dataset(Dataset):
 
 
     def tokenizeQA(self, q, a, done):
-        q = self.START + q + self.END
-        q_padding = self.SRC_LEN - len(q)
+        q = self.START2 + q + self.END
+        q_padding = self.SRC_LEN - len(q) - 1
         assert q_padding >= 0, "Q length is {} but SRC_LEN={}".format(len(q), self.SRC_LEN)
 
-        a = self.START + a
+        a = self.START2 + a
         a += self.TGT_LOOP_SEP
         if done == "1":
             a += self.LOOP_STOP
@@ -80,7 +82,7 @@ class Dataset(Dataset):
         else:
             assert 0, "Dataset object encountered undefined variable: done={}".format(done)
         a += self.END
-        a_padding = self.TGT_LEN - len(a)
+        a_padding = self.TGT_LEN - len(a) - 1
         assert a_padding >= 0, "A length is {} but TGT_LEN={}".format(len(a), self.TGT_LEN)
 
         if self.RANDOMIZE_LEFT_PADDING:
@@ -89,8 +91,8 @@ class Dataset(Dataset):
         else:
             left_padding = 0
 
-        q = left_padding * self.PADDING + q + (q_padding - left_padding) * self.PADDING
-        a = left_padding * self.PADDING + a + (a_padding - left_padding) * self.PADDING
+        q = self.START1 + left_padding * self.PADDING + q + (q_padding - left_padding) * self.PADDING
+        a = self.START1 + left_padding * self.PADDING + a + (a_padding - left_padding) * self.PADDING
 
         return q, a
 
@@ -116,6 +118,7 @@ class Dataset(Dataset):
         self.dictionary.freeze_dict = True
 
     def saveDictionary(self, dict_path):
+        print("Saving dataset dictionary")
         with open(dict_path, "w") as f:
             json.dump(self.dictionary.word2idx, f) 
 
