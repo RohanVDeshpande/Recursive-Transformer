@@ -115,8 +115,12 @@ if args.dims == 2:
 		ax.scatter(X_pca[i, 0], X_pca[i, 1])
 		if dataset.dictionary.idx2word[i] == dataset.PADDING:
 			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, "PADDING")
-		elif dataset.dictionary.idx2word[i] == dataset.START:
+		elif dataset.START and dataset.dictionary.idx2word[i] == dataset.START:
 			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, "START")
+		elif dataset.START1 and dataset.dictionary.idx2word[i] == dataset.START1:
+			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, "START1")
+		elif dataset.START2 and dataset.dictionary.idx2word[i] == dataset.START2:
+			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, "START2")
 		elif dataset.dictionary.idx2word[i] == dataset.END:
 			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, "END")
 		elif dataset.dictionary.idx2word[i] == dataset.TGT_LOOP_SEP:
@@ -139,8 +143,12 @@ elif args.dims == 3:
 		ax.scatter(X_pca[i, 0], X_pca[i, 1], X_pca[i, 2])
 		if dataset.dictionary.idx2word[i] == dataset.PADDING:
 			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, X_pca[i, 2] + delta, "PADDING")
-		elif dataset.dictionary.idx2word[i] == dataset.START:
+		elif dataset.START and dataset.dictionary.idx2word[i] == dataset.START:
 			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, X_pca[i, 2] + delta, "START")
+		elif dataset.START1 and dataset.dictionary.idx2word[i] == dataset.START1:
+			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, X_pca[i, 2] + delta, "START1")
+		elif dataset.START2 and dataset.dictionary.idx2word[i] == dataset.START2:
+			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, X_pca[i, 2] + delta, "START2")
 		elif dataset.dictionary.idx2word[i] == dataset.END:
 			ax.text(X_pca[i, 0] + delta, X_pca[i, 1] + delta, X_pca[i, 2] + delta, "END")
 		elif dataset.dictionary.idx2word[i] == dataset.TGT_LOOP_SEP:

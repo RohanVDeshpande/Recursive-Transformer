@@ -34,6 +34,7 @@ class Dataset(Dataset):
         self.device = "cpu"     # default device
         self.TOTAL_TOKENS = None    # manually set number of tokens
         self.RANDOMIZE_LEFT_PADDING = False
+        self.START1, self.START1, self.START2 = None, None, None
 
         if isinstance(config, dict):
             self.dictionary = Dictionary()
@@ -45,6 +46,7 @@ class Dataset(Dataset):
             print("Using existing dictionary to initialize new dataset object", self.dictionary.idx2word)
             self.START1 = config.START1
             self.START2 = config.START2
+            self.START = config.START
             self.SRC_LEN = config.SRC_LEN
             self.TGT_LEN = config.TGT_LEN
             self.PADDING = config.PADDING
@@ -56,8 +58,7 @@ class Dataset(Dataset):
             self.TOTAL_TOKENS = config.TOTAL_TOKENS
             self.RANDOMIZE_LEFT_PADDING = config.RANDOMIZE_LEFT_PADDING
 
-        assert self.START1 is not None
-        assert self.START2 is not None
+        assert self.START1 is not None and self.START2 is not None or self.START is not None
         assert self.SRC_LEN is not None
         assert self.TGT_LEN is not None
         assert self.PADDING is not None
