@@ -93,6 +93,8 @@ if args.mode == "test" or args.mode == "finetune":
 	if args.mode == "finetune":
 		print('unfreezing dataset for finetune')
 		dataset.dictionary.freeze_dict = False
+	else:
+		dataset.RANDOMIZE_LEFT_PADDING = False
 dataset.buildDataset(args.data)
 dataset.device = device
 
@@ -120,8 +122,7 @@ if args.mode == "train" or args.mode == "finetune":
 	if args.mode == "finetune":
 		print('unfreezing validation set for finetune')
 		val_dataset.dictionary.freeze_dict = False
-	else:
-		dataset.saveDictionary(dictionary_out_path)
+	dataset.saveDictionary(dictionary_out_path)
 	val_dataset.buildDataset(args.validation)
 	val_dataset.device = device
 	val_dataloader = DataLoader(val_dataset, batch_size=dataset_config["BATCH_SIZE"], shuffle=dataset_config["SHUFFLE"], num_workers=dataset_config["WORKERS"],

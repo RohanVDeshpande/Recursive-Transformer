@@ -34,7 +34,7 @@ class Dataset(Dataset):
         self.device = "cpu"     # default device
         self.TOTAL_TOKENS = None    # manually set number of tokens
         self.RANDOMIZE_LEFT_PADDING = False
-        self.START1, self.START1, self.START2 = None, None, None
+        self.START, self.START1, self.START2 = None, None, None
 
         if isinstance(config, dict):
             self.dictionary = Dictionary()
