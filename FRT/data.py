@@ -58,7 +58,11 @@ class Dataset(Dataset):
             self.TOTAL_TOKENS = config.TOTAL_TOKENS
             self.RANDOMIZE_LEFT_PADDING = config.RANDOMIZE_LEFT_PADDING
 
-        assert self.START1 is not None and self.START2 is not None or self.START is not None
+        if self.START is not None:
+            self.START2 = self.START
+            self.START1 = ""
+
+        assert self.START1 is not None and self.START2 is not None
         assert self.SRC_LEN is not None
         assert self.TGT_LEN is not None
         assert self.PADDING is not None

@@ -4,6 +4,7 @@ import torch
 
 
 def test(model, dataloader, dataset, prediction_path):
+	dataset.RANDOMIZE_LEFT_PADDING = False
 	correct = 0
 	total = 0
 	with open(prediction_path, "w") as f:
@@ -33,6 +34,7 @@ def test(model, dataloader, dataset, prediction_path):
 
 
 def testRecursive(model, dataset, prediction_path):
+	dataset.RANDOMIZE_LEFT_PADDING = False
 	print(dataset.dictionary.word2idx)
 	batch_size = dataset.BATCH_SIZE
 	dataset.BATCH_SIZE = 1
