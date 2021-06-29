@@ -84,9 +84,9 @@ class FRT(nn.Module):
 		src = self.src_pos_encoder(src)
 		memory = self.transformer.encoder(src, src_key_padding_mask=src_padding_mask)
 
-		tgt_indicies = torch.cat(torch.full((1, src_indicies.shape[1]), start_token_index1, dtype=torch.long, device=self.device),
+		tgt_indicies = torch.cat((torch.full((1, src_indicies.shape[1]), start_token_index1, dtype=torch.long, device=self.device),
 								 torch.full((1, src_indicies.shape[1]), start_token_index2, dtype=torch.long, device=self.device)
-								)		# (2, N)
+								))		# (2, N)
 
 		cache = None
 		# tgt_key_padding_mask=???
@@ -94,7 +94,7 @@ class FRT(nn.Module):
 		for k in range(steps):
 			tgt = self.embed(tgt_indicies)		# (1, N, E)
 			tgt = self.tgt_pos_encoder(tgt)
-			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 1).to(self.device)
+			tgt_mask = self.transformer.generate_square_subsequent_mask(k + 2).to(self.device)
 			#print(tgt_mask)
 			if self.CAUSAL_INFERENCE:
 				output, cache = self.transformer.decoder(tgt, memory, cache, tgt_mask=tgt_mask, memory_key_padding_mask=src_padding_mask)
