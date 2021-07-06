@@ -72,7 +72,7 @@ def testRecursive(model, dataset, prediction_path):
 					question = dataset.questions[working_set_idx[i]].split(dataset.PADDING)[0]
 					actual = dataset.answers[working_set_idx[i]].split(dataset.END)[0]
 					proof_of_work[i].append(prediction)
-					if prediction[-2] == dataset.TGT_LOOP_SEP and prediction[-1] == dataset.LOOP_CONTINUE and len(proof_of_work[i]) <= 30:
+					if prediction[-2] == dataset.TGT_LOOP_SEP and prediction[-1] == dataset.LOOP_CONTINUE and len(proof_of_work[i]) <= 30 and len(prediction)-1 <= dataset.TGT_LEN:
 						# swap output -> src for next thinking step
 						prediction = prediction[:-2] + dataset.END
 						assert len(prediction) <= dataset.TGT_LEN, "Prediction length cannot be greater than TGT_LEN"
